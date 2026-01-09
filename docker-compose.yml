@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # Python Agent (Basic + Advanced)
+  python-agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    ports:
+      - "10002:10002"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10002/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - a2ui-network
+
+  # Java Agent (Basic + Advanced)
+  java-agent:
+    build:
+      context: ./agent-java
+      dockerfile: Dockerfile
+    ports:
+      - "10003:10003"
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-default}
+      - JAVA_OPTS=${JAVA_OPTS:--Xmx512m}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:10003/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - a2ui-network
+
+  # Web Client
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      python-agent:
+        condition: service_healthy
+      java-agent:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - a2ui-network
+
+networks:
+  a2ui-network:
+    driver: bridge

@@ -1,0 +1,48 @@
+# Development compose file with hot-reload and volume mounts
+version: '3.8'
+
+services:
+  python-agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile.dev
+    ports:
+      - "10002:10002"
+      - "10004:10004"
+    volumes:
+      - ./agent:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+    networks:
+      - a2ui-network
+
+  java-agent:
+    build:
+      context: ./agent-java
+      dockerfile: Dockerfile
+    ports:
+      - "10003:10003"
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - JAVA_OPTS=-Xmx256m
+    networks:
+      - a2ui-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client/src:/app/src
+    environment:
+      - VITE_PYTHON_AGENT_URL=http://localhost:10002
+      - VITE_JAVA_AGENT_URL=http://localhost:10003
+    networks:
+      - a2ui-network
+
+networks:
+  a2ui-network:
+    driver: bridge
