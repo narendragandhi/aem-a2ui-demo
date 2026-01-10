@@ -9,11 +9,19 @@ const { Data, UI } = v0_8;
 // The Surface and Root components need to be imported to register themselves
 const { Surface, Root } = UI;
 
+// Available agents
+const AGENTS = [
+  { name: 'Python Agent', url: 'http://localhost:10002', port: 10002 },
+  { name: 'Java Agent + Ollama', url: 'http://localhost:10003', port: 10003 },
+  { name: 'Python Advanced', url: 'http://localhost:10004', port: 10004 },
+];
+
 @customElement('aem-assistant')
 export class AemAssistant extends LitElement {
-  @property({ type: String }) agentUrl = 'http://localhost:10002';
+  @property({ type: String }) agentUrl = 'http://localhost:10003'; // Default to Java agent
 
   @state() private loading = false;
+  @state() private selectedAgent = AGENTS[1]; // Java agent by default
   @state() private error = '';
   @state() private debugMessages: any[] = [];
   @state() private surfaceData: any = null;
@@ -126,11 +134,68 @@ export class AemAssistant extends LitElement {
     a2ui-surface {
       display: block;
     }
+
+    .agent-selector {
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .agent-selector label {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .agent-selector select {
+      padding: 8px 12px;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+      min-width: 200px;
+    }
+
+    .agent-selector select:focus {
+      outline: none;
+      border-color: #1473e6;
+      box-shadow: 0 0 0 2px rgba(20, 115, 230, 0.2);
+    }
+
+    .agent-status {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .agent-status.ollama {
+      background: #fff3e0;
+      color: #e65100;
+    }
   `;
 
   render() {
+    const isOllama = this.selectedAgent.name.toLowerCase().includes('ollama');
+
     return html`
       <h1>AEM Content Assistant</h1>
+
+      <div class="agent-selector">
+        <label>Agent:</label>
+        <select @change=${this.handleAgentChange}>
+          ${AGENTS.map(agent => html`
+            <option value=${agent.url} ?selected=${agent.url === this.agentUrl}>
+              ${agent.name}
+            </option>
+          `)}
+        </select>
+        <span class="agent-status ${isOllama ? 'ollama' : ''}">
+          ${isOllama ? '🦙 Local LLM' : '☁️ Template Mode'}
+        </span>
+      </div>
 
       <div class="input-area">
         <input
@@ -194,6 +259,22 @@ export class AemAssistant extends LitElement {
 
   private handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') this.sendMessage();
+  }
+
+  private handleAgentChange(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    const newUrl = select.value;
+    const agent = AGENTS.find(a => a.url === newUrl);
+    if (agent) {
+      this.selectedAgent = agent;
+      this.agentUrl = newUrl;
+      console.log('Switched to agent:', agent.name, 'at', newUrl);
+      // Clear previous results when switching agents
+      this.processor.clearSurfaces();
+      this.debugMessages = [];
+      this.error = '';
+      this.requestUpdate();
+    }
   }
 
   private async sendMessage() {
