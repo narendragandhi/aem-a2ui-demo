@@ -33,7 +33,7 @@ aem-a2ui-demo/
 ### Prerequisites
 
 - Python 3.10+ with `uv` (for Python agent)
-- Java 17+ with Maven (for Java agent)
+- Java 21+ with Maven (for Java agent with Embabel)
 - Node.js 18+ (for client)
 
 ### 1. Start an Agent
@@ -295,19 +295,40 @@ agent = LlmAgent(
 )
 ```
 
-### Adding LLM Integration (Java)
+### Adding LLM Integration (Java with Embabel)
+
+The Java agent includes [Embabel](https://embabel.com) AI agent framework integration. Embabel is Rod Johnson's (creator of Spring) AI agent framework for the JVM.
 
 ```java
-// Use Google's Vertex AI SDK or similar
-@Service
-public class LlmService {
-    public String generateSuggestion(String prompt) {
-        // Call Gemini API
-        // Parse response for A2UI JSON
-        return a2uiJson;
+import com.embabel.agent.api.annotation.Agent;
+import com.embabel.agent.api.annotation.Action;
+import com.embabel.agent.api.annotation.AchievesGoal;
+
+@Agent(description = "AI agent that generates content suggestions for AEM components")
+public class AemContentAgent {
+
+    @Action
+    public UserInput parseUserIntent(String rawInput) {
+        // Parse user intent using LLM or templates
+    }
+
+    @AchievesGoal(description = "Generate content suggestion for AEM component")
+    @Action
+    public ContentSuggestion generateContent(UserInput input) {
+        // Generate content using LLM or templates
     }
 }
 ```
+
+**Current Status:**
+- Uses `embabel-agent-api` 0.3.1 for agent annotations
+- Template-based content generation (fallback)
+- Ready for full LLM integration when API keys are configured
+
+**To enable AI-powered generation:**
+1. Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable
+2. Set `AI_ENABLED=true` in `.env`
+3. The agent will use LLM prompts defined in `AemContentAgent.java`
 
 ## Advanced Demos
 
@@ -446,6 +467,7 @@ curl -X POST http://localhost:10004/tasks \
 - [A2UI Specification v0.8](https://a2ui.org/specification/v0.8-a2ui/)
 - [Google ADK (Agent Development Kit)](https://google.github.io/adk-docs/)
 - [@a2ui/lit npm package](https://www.npmjs.com/package/@a2ui/lit)
+- [Embabel AI Agent Framework](https://embabel.com) - JVM agent framework by Rod Johnson
 
 ## License
 
