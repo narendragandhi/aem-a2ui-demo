@@ -12,4 +12,5 @@ public class TaskResponse {
     private String id;
     private String status;
     private List<Map<String, Object>> messages;
+    private List<Map<String, Object>> artifacts;
 }

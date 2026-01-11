@@ -59,13 +59,14 @@ public class AgentController {
         // Extract user text from request
         String userText = extractUserText(request);
 
-        // Generate A2UI response
-        List<Map<String, Object>> messages = suggestionService.generateSuggestion(userText);
+        // Generate multiple variations for the client
+        var suggestionsResult = suggestionService.generateMultipleSuggestions(userText, 3);
 
         TaskResponse response = TaskResponse.builder()
             .id(UUID.randomUUID().toString())
             .status("completed")
-            .messages(messages)
+            .messages(suggestionsResult.messages())
+            .artifacts(suggestionsResult.artifacts())
             .build();
 
         return ResponseEntity.ok(response);

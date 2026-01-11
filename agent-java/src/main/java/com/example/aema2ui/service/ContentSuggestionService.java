@@ -3,6 +3,7 @@ package com.example.aema2ui.service;
 import com.example.aema2ui.agent.AemContentAgent;
 import com.example.aema2ui.model.ContentSuggestion;
 import com.example.aema2ui.model.UserInput;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,14 +21,99 @@ public class ContentSuggestionService {
 
     private final A2UIMessageBuilder builder;
     private final AemContentAgent contentAgent;
+    private final ObjectMapper objectMapper;
 
     @Value("${aem.agent.ai.enabled:false}")
     private boolean aiEnabled;
 
     @Autowired
-    public ContentSuggestionService(A2UIMessageBuilder builder, AemContentAgent contentAgent) {
+    public ContentSuggestionService(A2UIMessageBuilder builder, AemContentAgent contentAgent, ObjectMapper objectMapper) {
         this.builder = builder;
         this.contentAgent = contentAgent;
+        this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Result record for multiple suggestions.
+     */
+    public record SuggestionsResult(List<Map<String, Object>> messages, List<Map<String, Object>> artifacts) {}
+
+    /**
+     * Generates multiple content suggestions with variations.
+     */
+    public SuggestionsResult generateMultipleSuggestions(String userInput, int count) {
+        List<Map<String, Object>> messages = new ArrayList<>();
+        List<Map<String, Object>> artifacts = new ArrayList<>();
+
+        // Parse user intent once
+        UserInput parsed = contentAgent.parseUserIntent(userInput);
+        String componentType = parsed.getDetectedComponentType();
+
+        // Generate multiple variations
+        List<ContentSuggestion> suggestions = generateVariations(parsed, count);
+
+        // Create artifacts with the suggestions data for client consumption
+        for (int i = 0; i < suggestions.size(); i++) {
+            ContentSuggestion suggestion = suggestions.get(i);
+            artifacts.add(createArtifact(suggestion, i + 1));
+        }
+
+        // Also include A2UI messages for the first suggestion
+        if (!suggestions.isEmpty()) {
+            String surfaceId = "suggestion_" + UUID.randomUUID().toString().substring(0, 8);
+            messages.add(builder.beginRendering(surfaceId, "root"));
+            messages.add(builder.surfaceUpdate(surfaceId, buildComponents(suggestions.get(0))));
+            messages.add(builder.dataModelUpdate(surfaceId, "suggestion", buildDataModel(suggestions.get(0))));
+        }
+
+        return new SuggestionsResult(messages, artifacts);
+    }
+
+    /**
+     * Generate multiple variations of content.
+     */
+    private List<ContentSuggestion> generateVariations(UserInput parsed, int count) {
+        List<ContentSuggestion> variations = new ArrayList<>();
+
+        // First variation from the agent
+        variations.add(contentAgent.generateContent(parsed));
+
+        // Generate additional variations with different styles
+        String[] styles = {"bold and impactful", "friendly and conversational", "professional and elegant"};
+
+        for (int i = 1; i < count && i < styles.length; i++) {
+            UserInput variantInput = UserInput.builder()
+                .rawText(parsed.getRawText() + ". Style: " + styles[i])
+                .detectedComponentType(parsed.getDetectedComponentType())
+                .targetAudience(parsed.getTargetAudience())
+                .brandStyle(styles[i])
+                .toneOfVoice(parsed.getToneOfVoice())
+                .build();
+
+            variations.add(contentAgent.generateContent(variantInput));
+        }
+
+        return variations;
+    }
+
+    /**
+     * Create an artifact containing the suggestion data.
+     */
+    private Map<String, Object> createArtifact(ContentSuggestion suggestion, int index) {
+        try {
+            String json = objectMapper.writeValueAsString(suggestion);
+            return Map.of(
+                "index", index,
+                "name", "suggestion_" + index,
+                "parts", List.of(Map.of(
+                    "type", "application/json",
+                    "data", json
+                ))
+            );
+        } catch (Exception e) {
+            log.error("Failed to serialize suggestion", e);
+            return Map.of("error", e.getMessage());
+        }
     }
 
     /**

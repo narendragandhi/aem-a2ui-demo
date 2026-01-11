@@ -11,7 +11,8 @@
     "experimentalDecorators": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["mocha"]
   },
   "include": ["src"]
 }
