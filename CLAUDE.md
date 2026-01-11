@@ -77,6 +77,7 @@ client/src/
 │   ├── assistant-input.ts
 │   ├── assistant-preview.ts
 │   ├── assistant-suggestions.ts
+│   ├── content-wizard.ts    # NEW: Guided wizard component
 │   └── error-message.ts
 ├── lib/
 │   └── types.ts          # TypeScript interfaces
@@ -85,11 +86,71 @@ client/src/
 ```
 
 **Features**:
-- Two-pane layout (suggestions left, preview right)
+- Two-pane layout (wizard/suggestions left, preview right)
 - 4 component types: Hero, Product, Teaser, Banner
 - Copy to clipboard (JSON and HTML formats)
 - Refinement input for iterating on suggestions
 - Quick prompt buttons for common use cases
+
+### 6. Intuitive Content Wizard
+
+**Problem**: Users found the free-form text input unintuitive.
+
+**Solution**: Added a guided 3-step wizard for content creation.
+
+**Step 1 - Choose Type**: Visual cards with icons for each component type
+- Hero Banner, Product Card, Teaser, Promo Banner
+- Each card shows description and use case
+
+**Step 2 - Customize**:
+- Tone selector (Professional, Playful, Urgent, Elegant)
+- Image style selector (Photography, Illustration, Abstract, Minimal)
+- Description input with quick example chips
+
+**Step 3 - Review & Generate**: Summary of selections before generation
+
+**Implementation**:
+```typescript
+// content-wizard.ts
+const COMPONENT_TYPES = [
+  { id: 'hero', name: 'Hero Banner', icon: 'icon', description: '...' },
+  // ...
+];
+
+const TONES = [
+  { id: 'professional', name: 'Professional', icon: 'icon' },
+  // ...
+];
+```
+
+### 7. Inline Editing in Preview
+
+**Feature**: Click-to-edit functionality in the live preview.
+
+**Implementation**:
+- Toggle "Edit" mode in preview header
+- Click any text field (title, subtitle, description, CTA)
+- Inline input appears for editing
+- Press Enter to save, Escape to cancel
+- Changes update the content model in real-time
+
+```typescript
+// assistant-preview.ts
+private renderEditableField(field: string, value: string, tag: string) {
+  if (this.editMode && this.editingField === field) {
+    return html`<input class="editable-input" ... />`;
+  }
+  return html`<${tag} class="editable" @click=${...}>${value}</${tag}>`;
+}
+```
+
+### 8. View Mode Toggle
+
+**Design**: Users can switch between two input modes:
+- **Guided Mode**: Step-by-step wizard for structured input
+- **Quick Mode**: Free-form text input for experienced users
+
+Toggle buttons at the top of the left panel allow instant switching.
 
 ### 4. Multiple Variations Generation
 

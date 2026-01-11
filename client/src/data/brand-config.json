@@ -1,0 +1,43 @@
+{
+  "brand": {
+    "name": "Acme Corp",
+    "tagline": "Innovation for Tomorrow",
+    "industry": "Technology"
+  },
+  "voice": {
+    "tone": ["Professional", "Innovative", "Trustworthy"],
+    "personality": "We speak with confidence but never arrogance. We're experts who make complex ideas accessible.",
+    "avoid": ["Jargon", "Passive voice", "Superlatives like 'best' or 'leading'"]
+  },
+  "colors": {
+    "primary": "#1473E6",
+    "secondary": "#0D66D0",
+    "accent": "#2680EB",
+    "neutral": "#4B4B4B"
+  },
+  "typography": {
+    "headingStyle": "Bold, concise, action-oriented",
+    "bodyStyle": "Clear, scannable, max 2 sentences per paragraph"
+  },
+  "messaging": {
+    "valuePillars": [
+      "Speed & Efficiency",
+      "Enterprise Security",
+      "Seamless Integration"
+    ],
+    "targetAudience": "Enterprise IT decision-makers and digital marketers",
+    "ctaStyle": "Action verbs, urgency without pressure"
+  },
+  "examples": {
+    "goodHeadlines": [
+      "Transform Your Workflow in Minutes",
+      "Security That Scales With You",
+      "One Platform. Endless Possibilities."
+    ],
+    "goodCTAs": [
+      "Start Free Trial",
+      "See It In Action",
+      "Get Your Demo"
+    ]
+  }
+}

@@ -1,10 +1,14 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { ContentSuggestion } from '../lib/types';
+import './brand-score.js';
+import { BrandScore } from './brand-score.js';
 
 @customElement('assistant-preview')
 export class AssistantPreview extends LitElement {
   @property({ type: Object }) appliedContent: ContentSuggestion | null = null;
+  @state() private editingField: string | null = null;
+  @state() private editMode = false;
 
   static styles = css`
     .right-panel {
@@ -67,24 +71,77 @@ export class AssistantPreview extends LitElement {
       justify-content: center;
       color: #999;
       text-align: center;
+      padding: 40px;
     }
 
     .preview-placeholder-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-      opacity: 0.5;
+      font-size: 80px;
+      margin-bottom: 24px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
 
     .preview-placeholder h3 {
-      margin: 0 0 8px 0;
-      font-size: 18px;
-      color: #666;
+      margin: 0 0 12px 0;
+      font-size: 24px;
+      color: #333;
+      font-weight: 600;
     }
 
     .preview-placeholder p {
-      margin: 0;
+      margin: 0 0 24px 0;
+      font-size: 15px;
+      max-width: 400px;
+      color: #666;
+      line-height: 1.6;
+    }
+
+    .preview-placeholder-steps {
+      display: flex;
+      gap: 16px;
+      margin-top: 24px;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+    }
+
+    .step-item-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #1473e6;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
       font-size: 14px;
-      max-width: 300px;
+    }
+
+    .step-item-label {
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+    }
+
+    .step-arrow {
+      display: flex;
+      align-items: center;
+      color: #ccc;
+      font-size: 20px;
     }
 
     /* Component Previews */
@@ -286,6 +343,84 @@ export class AssistantPreview extends LitElement {
       border-radius: 6px;
       font-weight: 600;
     }
+
+    /* Edit Mode Toggle */
+    .edit-toggle {
+      padding: 6px 12px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .edit-toggle:hover {
+      background: #ffc107;
+      color: #333;
+    }
+
+    .edit-toggle.active {
+      background: #28a745;
+      border-color: #28a745;
+      color: white;
+    }
+
+    /* Editable Fields */
+    .editable {
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+      border-radius: 4px;
+    }
+
+    .edit-mode .editable:hover {
+      outline: 2px dashed rgba(255, 193, 7, 0.8);
+      outline-offset: 4px;
+    }
+
+    .editable.editing {
+      outline: 2px solid #28a745 !important;
+      outline-offset: 4px;
+    }
+
+    .editable-input {
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px solid #28a745;
+      border-radius: 4px;
+      padding: 8px;
+      font-family: inherit;
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+
+    .editable-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+    }
+
+    .edit-hint {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      z-index: 100;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
   `;
 
   render() {
@@ -295,6 +430,12 @@ export class AssistantPreview extends LitElement {
           <h2>Live Component Preview</h2>
           ${this.appliedContent ? html`
             <div class="preview-actions">
+              <button
+                class="edit-toggle ${this.editMode ? 'active' : ''}"
+                @click=${() => this.toggleEditMode()}
+              >
+                ${this.editMode ? '&#x2714; Editing' : '&#x270F; Edit'}
+              </button>
               <button class="preview-action-btn" @click=${() => this.copyToClipboard('html')}>
                 Copy HTML
               </button>
@@ -304,18 +445,60 @@ export class AssistantPreview extends LitElement {
             </div>
           ` : ''}
         </div>
-        <div class="preview-container">
+        <div class="preview-container ${this.editMode ? 'edit-mode' : ''}">
           ${this.appliedContent
-            ? this.renderComponentPreview(this.appliedContent)
+            ? html`
+              ${this.renderComponentPreview(this.appliedContent)}
+              ${this.renderBrandScore(this.appliedContent)}
+            `
             : html`
               <div class="preview-placeholder">
-                <div class="preview-placeholder-icon">&#128444;</div>
-                <h3>No Content Applied</h3>
-                <p>Generate suggestions and click "Apply to Preview" to see how your component will look</p>
+                <div class="preview-placeholder-icon">&#x2728;</div>
+                <h3>Ready to Create</h3>
+                <p>Use the guided wizard on the left to create stunning AEM components. Your live preview will appear here.</p>
+                <div class="preview-placeholder-steps">
+                  <div class="step-item">
+                    <div class="step-item-number">1</div>
+                    <div class="step-item-label">Choose Type</div>
+                  </div>
+                  <div class="step-arrow">&#x2192;</div>
+                  <div class="step-item">
+                    <div class="step-item-number">2</div>
+                    <div class="step-item-label">Customize</div>
+                  </div>
+                  <div class="step-arrow">&#x2192;</div>
+                  <div class="step-item">
+                    <div class="step-item-number">3</div>
+                    <div class="step-item-label">Generate</div>
+                  </div>
+                </div>
               </div>
             `
           }
         </div>
+        ${this.editMode ? html`
+          <div class="edit-hint">Click on any text to edit it directly</div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private toggleEditMode() {
+    this.editMode = !this.editMode;
+    this.editingField = null;
+  }
+
+  private renderBrandScore(content: ContentSuggestion) {
+    const { score, factors } = BrandScore.calculateScore({
+      title: content.title,
+      subtitle: content.subtitle,
+      description: content.description,
+      cta: content.cta
+    });
+
+    return html`
+      <div style="margin-top: 16px;">
+        <brand-score .score=${score} .factors=${factors}></brand-score>
       </div>
     `;
   }
@@ -329,10 +512,10 @@ export class AssistantPreview extends LitElement {
           <div class="component-preview hero-preview">
             <img class="hero-image" src="${content.imageUrl}" alt="${content.imageAlt || content.title}" />
             <div class="hero-overlay">
-              <h2>${content.title}</h2>
-              ${content.subtitle ? html`<div class="subtitle">${content.subtitle}</div>` : ''}
-              <div class="description">${content.description}</div>
-              <a href="${content.ctaUrl}" class="cta-button">${content.ctaText}</a>
+              ${this.renderEditableField('title', content.title, 'h2')}
+              ${content.subtitle ? this.renderEditableField('subtitle', content.subtitle, 'div', 'subtitle') : ''}
+              ${this.renderEditableField('description', content.description, 'div', 'description')}
+              ${this.renderEditableField('ctaText', content.ctaText || 'Learn More', 'a', 'cta-button')}
             </div>
           </div>
         `;
@@ -342,10 +525,10 @@ export class AssistantPreview extends LitElement {
           <div class="component-preview product-preview">
             <img class="product-image" src="${content.imageUrl}" alt="${content.imageAlt || content.title}" />
             <div class="product-content">
-              <h3>${content.title}</h3>
-              ${content.price ? html`<div class="price">${content.price}</div>` : ''}
-              <div class="description">${content.description}</div>
-              <a href="${content.ctaUrl}" class="cta-button">${content.ctaText}</a>
+              ${this.renderEditableField('title', content.title, 'h3')}
+              ${content.price ? this.renderEditableField('price', content.price, 'div', 'price') : ''}
+              ${this.renderEditableField('description', content.description, 'div', 'description')}
+              ${this.renderEditableField('ctaText', content.ctaText || 'Shop Now', 'a', 'cta-button')}
             </div>
           </div>
         `;
@@ -355,10 +538,10 @@ export class AssistantPreview extends LitElement {
           <div class="component-preview teaser-preview">
             <img class="teaser-image" src="${content.imageUrl}" alt="${content.imageAlt || content.title}" />
             <div class="teaser-content">
-              <h3>${content.title}</h3>
-              ${content.subtitle ? html`<div class="subtitle">${content.subtitle}</div>` : ''}
-              <div class="description">${content.description}</div>
-              <a href="${content.ctaUrl}" class="cta-link">${content.ctaText} &rarr;</a>
+              ${this.renderEditableField('title', content.title, 'h3')}
+              ${content.subtitle ? this.renderEditableField('subtitle', content.subtitle, 'div', 'subtitle') : ''}
+              ${this.renderEditableField('description', content.description, 'div', 'description')}
+              ${this.renderEditableField('ctaText', (content.ctaText || 'Read More') + ' →', 'a', 'cta-link')}
             </div>
           </div>
         `;
@@ -366,10 +549,10 @@ export class AssistantPreview extends LitElement {
       case 'banner':
         return html`
           <div class="component-preview banner-preview">
-            <h3>${content.title}</h3>
-            ${content.subtitle ? html`<div class="subtitle">${content.subtitle}</div>` : ''}
-            <div class="description">${content.description}</div>
-            <a href="${content.ctaUrl}" class="cta-button">${content.ctaText}</a>
+            ${this.renderEditableField('title', content.title, 'h3')}
+            ${content.subtitle ? this.renderEditableField('subtitle', content.subtitle, 'div', 'subtitle') : ''}
+            ${this.renderEditableField('description', content.description, 'div', 'description')}
+            ${this.renderEditableField('ctaText', content.ctaText || 'Learn More', 'a', 'cta-button')}
           </div>
         `;
 
@@ -378,12 +561,100 @@ export class AssistantPreview extends LitElement {
           <div class="component-preview hero-preview">
             <img class="hero-image" src="${content.imageUrl}" alt="${content.imageAlt || content.title}" />
             <div class="hero-overlay">
-              <h2>${content.title}</h2>
-              <div class="description">${content.description}</div>
-              <a href="${content.ctaUrl}" class="cta-button">${content.ctaText}</a>
+              ${this.renderEditableField('title', content.title, 'h2')}
+              ${this.renderEditableField('description', content.description, 'div', 'description')}
+              ${this.renderEditableField('ctaText', content.ctaText || 'Learn More', 'a', 'cta-button')}
             </div>
           </div>
         `;
+    }
+  }
+
+  private renderEditableField(
+    field: string,
+    value: string,
+    tag: string = 'div',
+    className: string = ''
+  ) {
+    const isEditing = this.editingField === field;
+    const content = value || '';
+
+    if (this.editMode && isEditing) {
+      // Show input when editing
+      const isMultiline = field === 'description';
+      return isMultiline
+        ? html`
+          <textarea
+            class="editable-input ${className}"
+            .value=${content}
+            @blur=${(e: Event) => this.finishEditing(field, (e.target as HTMLTextAreaElement).value)}
+            @keydown=${(e: KeyboardEvent) => this.handleKeyDown(e, field)}
+            rows="3"
+          ></textarea>
+        `
+        : html`
+          <input
+            type="text"
+            class="editable-input ${className}"
+            .value=${content}
+            @blur=${(e: Event) => this.finishEditing(field, (e.target as HTMLInputElement).value)}
+            @keydown=${(e: KeyboardEvent) => this.handleKeyDown(e, field)}
+          />
+        `;
+    }
+
+    // Non-editing mode - just show the element with click handler
+    const editableClass = this.editMode ? 'editable' : '';
+
+    switch (tag) {
+      case 'h2':
+        return html`<h2 class="${editableClass} ${className}" @click=${() => this.startEditing(field)}>${content}</h2>`;
+      case 'h3':
+        return html`<h3 class="${editableClass} ${className}" @click=${() => this.startEditing(field)}>${content}</h3>`;
+      case 'a':
+        return html`<a class="${editableClass} ${className}" @click=${(e: Event) => { e.preventDefault(); this.startEditing(field); }}>${content}</a>`;
+      default:
+        return html`<div class="${editableClass} ${className}" @click=${() => this.startEditing(field)}>${content}</div>`;
+    }
+  }
+
+  private startEditing(field: string) {
+    if (!this.editMode) return;
+    this.editingField = field;
+
+    // Focus the input after render
+    this.updateComplete.then(() => {
+      const input = this.shadowRoot?.querySelector('.editable-input') as HTMLInputElement | HTMLTextAreaElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    });
+  }
+
+  private finishEditing(field: string, value: string) {
+    if (!this.appliedContent) return;
+
+    // Update the content
+    const updatedContent = { ...this.appliedContent, [field]: value };
+
+    // Dispatch event to parent
+    this.dispatchEvent(new CustomEvent('content-updated', {
+      detail: { field, value, content: updatedContent },
+      bubbles: true,
+      composed: true,
+    }));
+
+    this.editingField = null;
+  }
+
+  private handleKeyDown(e: KeyboardEvent, field: string) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+      this.finishEditing(field, target.value);
+    } else if (e.key === 'Escape') {
+      this.editingField = null;
     }
   }
 

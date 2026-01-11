@@ -1,13 +1,18 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import './spectrum-imports.js';
 import './components/assistant-header.js';
 import './components/assistant-input.js';
 import './components/assistant-suggestions.js';
 import './components/assistant-preview.js';
 import './components/error-message.js';
+import './components/content-wizard.js';
+import './components/brand-panel.js';
 
 import { ContentSuggestion } from './lib/types.js';
 import { HistoryService } from './services/history-service.js';
+import { ContentWizard } from './components/content-wizard.js';
+import { BrandPanel } from './components/brand-panel.js';
 
 const AGENTS = [
   { name: 'Java Agent + Ollama', url: 'http://localhost:10003', port: 10003, hasAI: true },
@@ -29,71 +34,72 @@ export class AemAssistant extends LitElement {
   @state() private refinementMode = false;
   @state() private history: ContentSuggestion[] = [];
   @state() private theme: 'light' | 'dark' = 'light';
+  @state() private viewMode: 'wizard' | 'quick' = 'wizard';
 
   static styles = css`
     :host {
       display: block;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: adobe-clean, 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       height: 100vh;
       overflow: hidden;
-      background-color: var(--background-color);
-      color: var(--text-color);
+      background-color: var(--spectrum-gray-100, #f5f5f5);
+      color: var(--spectrum-gray-900, #1a1a1a);
     }
 
     :root {
-      --primary-color: #1473e6;
-      --primary-hover-color: #0d66d0;
-      --text-color: #333;
-      --text-color-light: #666;
-      --background-color: #f5f5f5;
-      --card-background: white;
-      --border-color: #e0e0e0;
-      --header-bg: linear-gradient(135deg, #1473e6 0%, #0d66d0 100%);
+      --primary-color: var(--spectrum-accent-color-default, #1473e6);
+      --primary-hover-color: var(--spectrum-accent-color-hover, #0d66d0);
+      --text-color: var(--spectrum-gray-900, #1a1a1a);
+      --text-color-light: var(--spectrum-gray-700, #666);
+      --background-color: var(--spectrum-gray-100, #f5f5f5);
+      --card-background: var(--spectrum-gray-50, white);
+      --border-color: var(--spectrum-gray-300, #e0e0e0);
+      --header-bg: linear-gradient(135deg, var(--spectrum-accent-color-default, #1473e6) 0%, var(--spectrum-blue-900, #0d66d0) 100%);
       --header-text: white;
-      --input-bg: white;
-      --input-border: #e0e0e0;
+      --input-bg: var(--spectrum-gray-50, white);
+      --input-border: var(--spectrum-gray-300, #e0e0e0);
       --input-focus-shadow: rgba(20, 115, 230, 0.1);
-      --button-primary-bg: #1473e6;
-      --button-primary-hover-bg: #0d66d0;
-      --button-secondary-bg: #f0f0f0;
-      --button-secondary-hover-bg: #e0e0e0;
-      --button-secondary-text: #333;
-      --error-bg: #ffebee;
-      --error-text: #c62828;
-      --toast-bg: #333;
+      --button-primary-bg: var(--spectrum-accent-color-default, #1473e6);
+      --button-primary-hover-bg: var(--spectrum-accent-color-hover, #0d66d0);
+      --button-secondary-bg: var(--spectrum-gray-200, #f0f0f0);
+      --button-secondary-hover-bg: var(--spectrum-gray-300, #e0e0e0);
+      --button-secondary-text: var(--spectrum-gray-900, #1a1a1a);
+      --error-bg: var(--spectrum-negative-background-color-default, #ffebee);
+      --error-text: var(--spectrum-negative-color-default, #c62828);
+      --toast-bg: var(--spectrum-gray-800, #333);
       --toast-text: white;
-      --empty-icon-color: #999;
-      --refinement-bg: #fff8e1;
-      --refinement-border: #ffe082;
-      --refinement-button-bg: #ff8f00;
+      --empty-icon-color: var(--spectrum-gray-500, #999);
+      --refinement-bg: var(--spectrum-yellow-100, #fff8e1);
+      --refinement-border: var(--spectrum-yellow-400, #ffe082);
+      --refinement-button-bg: var(--spectrum-orange-600, #ff8f00);
     }
 
     :host([data-theme='dark']) {
-      --primary-color: #008cff;
-      --primary-hover-color: #0077e6;
-      --text-color: #e0e0e0;
-      --text-color-light: #b0b0b0;
-      --background-color: #2c2c2c;
-      --card-background: #3c3c3c;
-      --border-color: #444;
-      --header-bg: linear-gradient(135deg, #333 0%, #111 100%);
+      --primary-color: var(--spectrum-accent-color-default, #008cff);
+      --primary-hover-color: var(--spectrum-accent-color-hover, #0077e6);
+      --text-color: var(--spectrum-gray-100, #e0e0e0);
+      --text-color-light: var(--spectrum-gray-400, #b0b0b0);
+      --background-color: var(--spectrum-gray-900, #2c2c2c);
+      --card-background: var(--spectrum-gray-800, #3c3c3c);
+      --border-color: var(--spectrum-gray-600, #444);
+      --header-bg: linear-gradient(135deg, var(--spectrum-gray-800, #333) 0%, var(--spectrum-gray-900, #111) 100%);
       --header-text: white;
-      --input-bg: #444;
-      --input-border: #555;
+      --input-bg: var(--spectrum-gray-700, #444);
+      --input-border: var(--spectrum-gray-600, #555);
       --input-focus-shadow: rgba(0, 140, 255, 0.2);
-      --button-primary-bg: #008cff;
-      --button-primary-hover-bg: #0077e6;
-      --button-secondary-bg: #555;
-      --button-secondary-hover-bg: #666;
-      --button-secondary-text: #e0e0e0;
+      --button-primary-bg: var(--spectrum-accent-color-default, #008cff);
+      --button-primary-hover-bg: var(--spectrum-accent-color-hover, #0077e6);
+      --button-secondary-bg: var(--spectrum-gray-600, #555);
+      --button-secondary-hover-bg: var(--spectrum-gray-500, #666);
+      --button-secondary-text: var(--spectrum-gray-100, #e0e0e0);
       --error-bg: #5c1414;
       --error-text: #ff8080;
-      --toast-bg: #555;
+      --toast-bg: var(--spectrum-gray-600, #555);
       --toast-text: white;
-      --empty-icon-color: #777;
-      --refinement-bg: #4a4a4a;
-      --refinement-border: #6a6a6a;
-      --refinement-button-bg: #d48200;
+      --empty-icon-color: var(--spectrum-gray-600, #777);
+      --refinement-bg: var(--spectrum-gray-700, #4a4a4a);
+      --refinement-border: var(--spectrum-gray-600, #6a6a6a);
+      --refinement-button-bg: var(--spectrum-orange-700, #d48200);
     }
 
     :host([data-theme='dark']) .agent-selector select option {
@@ -286,6 +292,40 @@ export class AemAssistant extends LitElement {
       text-align: center;
       padding: 10px 0;
     }
+
+    /* View Mode Toggle */
+    .view-mode-toggle {
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+      gap: 8px;
+      background: var(--card-background);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .view-mode-toggle sp-action-group {
+      --spectrum-actiongroup-horizontal-spacing-regular: 8px;
+    }
+
+    /* Left Panel */
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: var(--background-color);
+    }
+
+    .left-panel-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Wizard Container */
+    .wizard-container {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 20px;
+    }
   `;
 
   render() {
@@ -303,56 +343,84 @@ export class AemAssistant extends LitElement {
       <div class="main-layout">
         <!-- Left Panel: Input & Suggestions -->
         <div class="left-panel">
-          <assistant-input
-            .prompt=${this.prompt}
-            .loading=${this.loading}
-            @prompt-changed=${this.handlePromptChange}
-            @generate-content=${this.generateContent}
-          ></assistant-input>
+          <!-- Brand Guidelines Panel -->
+          <brand-panel></brand-panel>
 
-          ${this.error ? html`<error-message .message=${this.error}></error-message>` : ''}
-
-          <assistant-suggestions
-            .suggestions=${this.suggestions}
-            .selectedSuggestion=${this.selectedSuggestion}
-            @suggestion-selected=${this.handleSuggestionSelected}
-            @suggestion-applied=${this.handleSuggestionApplied}
-            @copy-suggestion=${this.handleCopySuggestion}
-          ></assistant-suggestions>
-
-          <!-- History Section -->
-          <div class="history-section">
-            <div class="history-header">
-              <h2>History</h2>
-              <button class="clear-history-btn" @click=${this.clearHistory}>Clear History</button>
-            </div>
-            <div class="history-list">
-              ${this.history.length === 0 ? html`
-                <p class="empty-history">No history yet.</p>
-              ` : html`
-                ${this.history.map(item => html`
-                  <div class="history-item" @click=${() => this.handleHistoryItemClick(item)}>
-                    <h3>${item.title}</h3>
-                    <p>${item.description}</p>
-                  </div>
-                `)}
-              `}
-            </div>
+          <!-- View Mode Toggle -->
+          <div class="view-mode-toggle">
+            <sp-action-group selects="single" @change=${this.handleModeChange}>
+              <sp-action-button ?selected=${this.viewMode === 'wizard'} value="wizard">
+                Guided
+              </sp-action-button>
+              <sp-action-button ?selected=${this.viewMode === 'quick'} value="quick">
+                Quick
+              </sp-action-button>
+            </sp-action-group>
           </div>
 
-          ${this.appliedContent ? html`
-            <div class="refinement-section">
-              <div class="refinement-input">
-                <input type="text" placeholder="Refine: Make it more playful, shorter, add urgency..." id="refinement-input" />
-                <button @click=${this.refineContent}>Refine</button>
-              </div>
+          ${this.viewMode === 'wizard' ? html`
+            <!-- Wizard Mode -->
+            <div class="wizard-container">
+              <content-wizard
+                @generate=${this.handleWizardGenerate}
+              ></content-wizard>
             </div>
-          ` : ''}
+          ` : html`
+            <!-- Quick Mode -->
+            <div class="left-panel-content">
+              <assistant-input
+                .prompt=${this.prompt}
+                .loading=${this.loading}
+                @prompt-changed=${this.handlePromptChange}
+                @generate-content=${this.generateContent}
+              ></assistant-input>
+
+              ${this.error ? html`<error-message .message=${this.error}></error-message>` : ''}
+
+              <assistant-suggestions
+                .suggestions=${this.suggestions}
+                .selectedSuggestion=${this.selectedSuggestion}
+                @suggestion-selected=${this.handleSuggestionSelected}
+                @suggestion-applied=${this.handleSuggestionApplied}
+                @copy-suggestion=${this.handleCopySuggestion}
+              ></assistant-suggestions>
+
+              <!-- History Section -->
+              <div class="history-section">
+                <div class="history-header">
+                  <h2>History</h2>
+                  <button class="clear-history-btn" @click=${this.clearHistory}>Clear History</button>
+                </div>
+                <div class="history-list">
+                  ${this.history.length === 0 ? html`
+                    <p class="empty-history">No history yet.</p>
+                  ` : html`
+                    ${this.history.map(item => html`
+                      <div class="history-item" @click=${() => this.handleHistoryItemClick(item)}>
+                        <h3>${item.title}</h3>
+                        <p>${item.description}</p>
+                      </div>
+                    `)}
+                  `}
+                </div>
+              </div>
+
+              ${this.appliedContent ? html`
+                <div class="refinement-section">
+                  <div class="refinement-input">
+                    <input type="text" placeholder="Refine: Make it more playful, shorter, add urgency..." id="refinement-input" />
+                    <button @click=${this.refineContent}>Refine</button>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          `}
         </div>
 
         <assistant-preview
             .appliedContent=${this.appliedContent}
             @copy-content=${this.handleCopyContent}
+            @content-updated=${this.handleContentUpdated}
           ></assistant-preview>
       </div>
 
@@ -410,6 +478,37 @@ export class AemAssistant extends LitElement {
       this.selectedSuggestion = null;
       this.appliedContent = null;
       this.error = '';
+    }
+  }
+
+  private handlePromptChange(e: CustomEvent) {
+    this.prompt = e.detail.prompt;
+  }
+
+  private handleModeChange(e: Event) {
+    const target = e.target as HTMLElement;
+    const selected = target.querySelector('[selected]');
+    if (selected) {
+      this.viewMode = selected.getAttribute('value') as 'wizard' | 'quick';
+    }
+  }
+
+  private async handleWizardGenerate(e: CustomEvent) {
+    const { componentType, tone, imageStyle, description, prompt } = e.detail;
+
+    // Set the prompt and generate
+    this.prompt = prompt;
+    await this.generateContent();
+
+    // Reset wizard loading state
+    const wizard = this.shadowRoot?.querySelector('content-wizard') as ContentWizard;
+    if (wizard) {
+      wizard.setLoading(false);
+    }
+
+    // Switch to quick mode to show results if we have suggestions
+    if (this.suggestions.length > 0) {
+      this.viewMode = 'quick';
     }
   }
 
@@ -601,6 +700,21 @@ export class AemAssistant extends LitElement {
 
   private handleCopyContent(e: CustomEvent) {
     this.copyToClipboard(e.detail.content, e.detail.format);
+  }
+
+  private handleContentUpdated(e: CustomEvent) {
+    const { content } = e.detail;
+    this.appliedContent = content;
+
+    // Also update in suggestions if it exists there
+    const index = this.suggestions.findIndex(s => s.id === content.id);
+    if (index >= 0) {
+      this.suggestions = [
+        ...this.suggestions.slice(0, index),
+        content,
+        ...this.suggestions.slice(index + 1)
+      ];
+    }
   }
 
   private handleSuggestionSelected(e: CustomEvent) {

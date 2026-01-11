@@ -41,7 +41,44 @@ public class AemContentAgent {
         {"detectedComponentType": "...", "targetAudience": "...", "brandStyle": "...", "toneOfVoice": "..."}
         """;
 
+    // Brand guidelines that inform all content generation
+    public static final String BRAND_GUIDELINES = """
+        === BRAND GUIDELINES FOR ACME CORP ===
+
+        BRAND VOICE:
+        - Tone: Professional, Innovative, Trustworthy
+        - Personality: We speak with confidence but never arrogance. We're experts who make complex ideas accessible.
+
+        WRITING RULES:
+        - Headlines: Bold, concise, action-oriented (max 6 words)
+        - Use action verbs: Transform, Discover, Unlock, Accelerate, Simplify, Elevate, Power, Build
+        - Body copy: Clear, scannable, max 2 sentences per thought
+        - AVOID: Jargon, passive voice, superlatives like "best" or "leading"
+
+        VALUE PILLARS (incorporate these themes):
+        - Speed & Efficiency
+        - Enterprise Security
+        - Seamless Integration
+
+        TARGET AUDIENCE: Enterprise IT decision-makers and digital marketers
+
+        CTA STYLE: Action verbs with urgency but not pressure
+        - Good CTAs: "Start Free Trial", "See It In Action", "Get Your Demo", "Explore Now"
+        - Avoid: "Buy Now", "Don't Miss Out", "Act Fast"
+
+        EXAMPLE GOOD HEADLINES:
+        - "Transform Your Workflow in Minutes"
+        - "Security That Scales With You"
+        - "One Platform. Endless Possibilities."
+
+        === END BRAND GUIDELINES ===
+        """;
+
     public static final String GENERATE_CONTENT_PROMPT = """
+        You are a brand-aware content generation AI for Acme Corp.
+
+        %s
+
         Generate compelling marketing content for an AEM %s component.
 
         Context:
@@ -50,18 +87,26 @@ public class AemContentAgent {
         - Tone of voice: %s
         - Original request: %s
 
-        Create professional, engaging content and respond with JSON only:
+        IMPORTANT REQUIREMENTS:
+        1. Follow the brand guidelines above strictly
+        2. Use action-oriented headlines (6 words or less)
+        3. Incorporate at least one value pillar theme
+        4. Keep descriptions scannable (under 150 characters)
+        5. Use approved CTA styles only
+        6. Never use words from the "AVOID" list
+
+        Respond with JSON only:
         {
-          "title": "A strong headline that captures attention",
-          "subtitle": "A supporting subtitle",
-          "description": "A compelling description with clear value proposition",
-          "ctaText": "Call-to-action button text",
+          "title": "Action-oriented headline following brand voice",
+          "subtitle": "Supporting subtitle that reinforces value",
+          "description": "Clear, scannable description incorporating value pillars",
+          "ctaText": "Brand-approved CTA text",
           "ctaUrl": "/relevant-url",
           "imageUrl": "https://images.unsplash.com/photo-XXXXX?w=800",
           "imageAlt": "Descriptive alt text for the image"
         }
 
-        Make the content feel authentic and persuasive.
+        Make the content feel authentic, professional, and aligned with brand guidelines.
         """;
 
     @Autowired
@@ -136,7 +181,7 @@ public class AemContentAgent {
 
                 ContentSuggestion suggestion = llmService.generateObject(
                     String.format(GENERATE_CONTENT_PROMPT,
-                        componentType, audience, brandStyle, tone, input.getRawText()),
+                        BRAND_GUIDELINES, componentType, audience, brandStyle, tone, input.getRawText()),
                     ContentSuggestion.class
                 );
 
@@ -181,52 +226,53 @@ public class AemContentAgent {
     }
 
     private ContentSuggestion createTemplateSuggestion(String componentType, String rawInput) {
+        // Templates follow brand guidelines: action verbs, value pillars, approved CTA styles
         return switch (componentType.toLowerCase()) {
             case "hero" -> ContentSuggestion.builder()
-                .title("Unleash Your Potential")
-                .subtitle("Innovation Awaits")
-                .description("Discover innovative solutions designed to transform your digital experience.")
-                .ctaText("Get Started")
-                .ctaUrl("/get-started")
+                .title("Transform Your Workflow")
+                .subtitle("Speed & Efficiency Redefined")
+                .description("Accelerate your team's productivity with seamless enterprise integration.")
+                .ctaText("See It In Action")
+                .ctaUrl("/demo")
                 .imageUrl("https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200")
-                .imageAlt("Hero banner image")
+                .imageAlt("Modern enterprise dashboard")
                 .build();
             case "product" -> ContentSuggestion.builder()
-                .title("Premium Quality Products")
-                .subtitle("Crafted with Care")
-                .description("Crafted with precision and care for the discerning customer.")
-                .ctaText("Shop Now")
-                .ctaUrl("/products")
+                .title("Unlock Enterprise Power")
+                .subtitle("Security That Scales")
+                .description("Built for enterprises. Trusted by security teams worldwide.")
+                .ctaText("Start Free Trial")
+                .ctaUrl("/trial")
                 .imageUrl("https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800")
-                .imageAlt("Product showcase")
-                .price("$99.99")
+                .imageAlt("Enterprise product showcase")
+                .price("Contact Sales")
                 .build();
             case "teaser" -> ContentSuggestion.builder()
-                .title("Explore What's New")
-                .subtitle("Stay Ahead")
-                .description("Stay ahead of the curve with our latest innovations and offerings.")
-                .ctaText("Learn More")
-                .ctaUrl("/whats-new")
+                .title("Discover Seamless Integration")
+                .subtitle("Connect Everything")
+                .description("One platform. Endless possibilities. Your tools, unified.")
+                .ctaText("Explore Now")
+                .ctaUrl("/integrations")
                 .imageUrl("https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600")
-                .imageAlt("Teaser image")
+                .imageAlt("Integration ecosystem")
                 .build();
             case "banner" -> ContentSuggestion.builder()
-                .title("Special Offer Inside")
-                .subtitle("Limited Time Only")
-                .description("Don't miss out on exclusive deals available for a limited time only.")
-                .ctaText("Claim Offer")
-                .ctaUrl("/offers")
+                .title("Accelerate Your Growth")
+                .subtitle("Enterprise-Ready Today")
+                .description("Join thousands of companies transforming their operations.")
+                .ctaText("Get Your Demo")
+                .ctaUrl("/contact")
                 .imageUrl("https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200")
-                .imageAlt("Banner image")
+                .imageAlt("Team collaboration")
                 .build();
             default -> ContentSuggestion.builder()
-                .title("Welcome to Our World")
-                .subtitle("Excellence in Everything")
-                .description("Experience excellence in everything we do. Your journey starts here.")
-                .ctaText("Explore")
-                .ctaUrl("/explore")
+                .title("Simplify Your Operations")
+                .subtitle("Built for Enterprise")
+                .description("Powerful solutions designed for scale, security, and speed.")
+                .ctaText("Learn More")
+                .ctaUrl("/overview")
                 .imageUrl("https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800")
-                .imageAlt("Welcome image")
+                .imageAlt("Modern office environment")
                 .build();
         };
     }
