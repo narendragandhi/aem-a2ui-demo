@@ -8,6 +8,8 @@ An AI-powered content assistant for Adobe Experience Manager (AEM) using:
 - **A2UI Protocol v0.8** - Google's Agent-to-User Interface protocol
 - **Embabel Agent Framework** - Rod Johnson's AI agent framework for JVM
 - **Multi-LLM Support** - OpenAI, Anthropic, and Ollama (local)
+- **Adobe Spectrum** - Adobe's official design system for professional UI
+- **Brand-Aware AI** - Content generation that follows brand guidelines
 
 ## Architecture
 
@@ -72,22 +74,30 @@ LlmService.generate(prompt) -> switch(provider) {
 ```
 client/src/
 ├── aem-assistant.ts      # Main component
-├── components/           # Reusable UI components
+├── spectrum-imports.ts   # Adobe Spectrum Web Components
+├── components/
 │   ├── assistant-header.ts
 │   ├── assistant-input.ts
 │   ├── assistant-preview.ts
 │   ├── assistant-suggestions.ts
-│   ├── content-wizard.ts    # NEW: Guided wizard component
+│   ├── content-wizard.ts    # Guided wizard (20 component types)
+│   ├── brand-panel.ts       # Brand guidelines display
+│   ├── brand-score.ts       # Content alignment scoring
 │   └── error-message.ts
+├── data/
+│   └── brand-config.json    # Brand guidelines configuration
 ├── lib/
-│   └── types.ts          # TypeScript interfaces
+│   └── types.ts
 └── services/
     └── history-service.ts
 ```
 
 **Features**:
+- Adobe Spectrum design system integration
 - Two-pane layout (wizard/suggestions left, preview right)
-- 4 component types: Hero, Product, Teaser, Banner
+- 20 component types across 7 categories
+- Brand guidelines panel with live status
+- Brand alignment scoring for generated content
 - Copy to clipboard (JSON and HTML formats)
 - Refinement input for iterating on suggestions
 - Quick prompt buttons for common use cases
@@ -187,14 +197,122 @@ server: {
 }
 ```
 
-## Component Types
+## Component Types (20 Total)
 
-| Type | Use Case | Visual |
-|------|----------|--------|
-| Hero | Landing page banners | Full-width image with overlay text |
-| Product | E-commerce cards | Image + price + CTA |
-| Teaser | Content previews | Side-by-side image + text |
-| Banner | Announcements | Gradient background + CTA |
+| Category | Components |
+|----------|------------|
+| **Marketing** | Hero Banner, Promo Banner, Carousel |
+| **Content** | Teaser, Quote/Testimonial, Accordion, Tabs |
+| **Commerce** | Product Card, Product List, Pricing Table |
+| **Media** | Video Player, Image Gallery |
+| **Navigation** | Navigation Menu, Footer, Breadcrumb |
+| **Interactive** | Form, Search, Call to Action |
+| **Social** | Social Share, Team Grid |
+
+### Category Filtering
+Users can filter components by category using chips at the top of the wizard.
+Grid layout adapts (3 columns) with scrollable area for easy navigation.
+
+### 9. Adobe Spectrum Design System
+
+**Integration**: Full Adobe Spectrum Web Components for professional look.
+
+```typescript
+// spectrum-imports.ts
+import '@spectrum-web-components/theme/sp-theme.js';
+import '@spectrum-web-components/button/sp-button.js';
+import '@spectrum-web-components/action-button/sp-action-button.js';
+import '@spectrum-web-components/textfield/sp-textfield.js';
+import '@spectrum-web-components/progress-circle/sp-progress-circle.js';
+// ... more components
+```
+
+**Usage**:
+- `<sp-theme>` wrapper for theming
+- `<sp-button>` for actions
+- `<sp-action-group>` for mode toggles
+- Spectrum design tokens (--spectrum-*) for colors
+
+### 10. Brand-Aware AI Content Generation
+
+**Problem**: Generated content lacks brand consistency.
+
+**Solution**: Comprehensive brand guidelines injected into every LLM prompt.
+
+**Brand Config** (`client/src/data/brand-config.json`):
+```json
+{
+  "brand": { "name": "Acme Corp", "tagline": "Innovation for Tomorrow" },
+  "voice": {
+    "tone": ["Professional", "Innovative", "Trustworthy"],
+    "avoid": ["Jargon", "Passive voice", "Superlatives"]
+  },
+  "messaging": {
+    "valuePillars": ["Speed & Efficiency", "Enterprise Security", "Seamless Integration"],
+    "targetAudience": "Enterprise IT decision-makers"
+  },
+  "examples": {
+    "goodHeadlines": ["Transform Your Workflow in Minutes", "Security That Scales With You"]
+  }
+}
+```
+
+**LLM Prompt Injection** (`AemContentAgent.java`):
+```java
+public static final String BRAND_GUIDELINES = """
+    === BRAND GUIDELINES FOR ACME CORP ===
+    BRAND VOICE: Professional, Innovative, Trustworthy
+    WRITING RULES:
+    - Headlines: Bold, concise, action-oriented (max 6 words)
+    - Use action verbs: Transform, Discover, Unlock, Accelerate
+    - AVOID: Jargon, passive voice, superlatives
+    VALUE PILLARS: Speed & Efficiency, Enterprise Security, Seamless Integration
+    === END BRAND GUIDELINES ===
+    """;
+```
+
+### 11. Brand Alignment Scoring
+
+**Feature**: Visual indicator showing how well content aligns with brand.
+
+**Score Calculation** (`brand-score.ts`):
+```typescript
+public static calculateScore(content) {
+  let score = 70; // Base score
+
+  // Check for action-oriented headline
+  if (actionWords.some(word => content.title.includes(word))) {
+    score += 8;
+    factors.push('Action-oriented headline');
+  }
+
+  // Check for value-focused messaging
+  if (valueWords.some(word => content.description.includes(word))) {
+    score += 7;
+    factors.push('Value pillar messaging');
+  }
+
+  return { score, factors };
+}
+```
+
+**Display**:
+- 85%+ = "Excellent" (green)
+- 65-84% = "Good" (yellow)
+- <65% = "Needs Work" (red)
+- Lists matched brand factors
+
+### 12. Brand Panel
+
+**Component**: Collapsible panel showing loaded brand guidelines.
+
+**Features**:
+- "Active & Loaded" status indicator
+- Voice & tone tags
+- Color swatches from brand config
+- Value pillars list
+- "Avoid" warnings
+- Example headlines
 
 ## API Endpoints
 
@@ -271,17 +389,20 @@ cd client && npm run storybook
 ## Value Proposition
 
 1. **Speed**: Generate AEM content in seconds vs hours of manual creation
-2. **Consistency**: AI-generated content follows brand guidelines
-3. **Flexibility**: Multiple variations to choose from
-4. **Export Ready**: Copy JSON/HTML directly into AEM
+2. **Brand Consistency**: AI follows brand guidelines with real-time scoring
+3. **Professional Design**: Adobe Spectrum design system for polished UI
+4. **Flexibility**: 20 component types, multiple variations per request
+5. **Export Ready**: Copy JSON/HTML directly into AEM
 
 ## Future Enhancements
 
 - [ ] Direct AEM integration via Granite APIs
-- [ ] Brand voice training
+- [x] Brand voice training (implemented via brand-config.json)
 - [ ] Asset library integration
 - [ ] Workflow integration
 - [ ] Multi-language support
+- [ ] Custom brand config upload
+- [ ] A/B testing for content variations
 
 ## Troubleshooting
 
