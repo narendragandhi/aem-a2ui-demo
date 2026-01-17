@@ -67,3 +67,145 @@ export interface AssetFilter {
   tags?: string[];
   brandAligned?: boolean;
 }
+
+// Review & Collaboration Types
+
+export type ReviewStatusType =
+  | 'draft'
+  | 'pending_review'
+  | 'in_review'
+  | 'approved'
+  | 'rejected'
+  | 'changes_requested';
+
+export interface ReviewComment {
+  id: string;
+  author: string;
+  authorName: string;
+  content: string;
+  field?: string;
+  timestamp: string;
+  resolved: boolean;
+  resolvedBy?: string;
+  resolvedAt?: string;
+}
+
+export type ReviewerRole = 'reviewer' | 'approver';
+
+export interface Reviewer {
+  id: string;
+  name: string;
+  email?: string;
+  avatar?: string;
+  role: ReviewerRole;
+  hasReviewed: boolean;
+}
+
+export interface Review {
+  id: string;
+  contentId: string;
+  content: ContentSuggestion;
+  status: ReviewStatusType;
+  reviewers: Reviewer[];
+  comments: ReviewComment[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  version: number;
+}
+
+export interface ContentVersion {
+  id: string;
+  contentId: string;
+  version: number;
+  content: ContentSuggestion;
+  createdBy: string;
+  createdAt: string;
+  changeNote?: string;
+}
+
+// Workflow Types
+
+export type WorkflowStatusType = 'RUNNING' | 'COMPLETED' | 'SUSPENDED' | 'ABORTED';
+
+export interface WorkflowModel {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  requiresApproval: boolean;
+}
+
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  status: 'pending' | 'active' | 'completed' | 'skipped';
+  assignee?: string;
+  startedAt?: string;
+  completedAt?: string;
+  comment?: string;
+}
+
+export interface WorkflowInstance {
+  id: string;
+  workflowModelId: string;
+  workflowModelName: string;
+  contentId: string;
+  contentPath: string;
+  status: WorkflowStatusType;
+  currentStep: string;
+  currentStepIndex: number;
+  steps: WorkflowStep[];
+  initiatedBy: string;
+  startedAt: string;
+  completedAt?: string;
+  metadata?: Record<string, any>;
+}
+
+// DAM Asset Types (for AEM integration)
+
+export type DamAssetType = 'image' | 'video' | 'document' | 'audio' | 'folder' | 'file';
+
+export interface DamAsset {
+  path: string;
+  name: string;
+  title?: string;
+  type: DamAssetType;
+  mimeType?: string;
+  size?: number;
+  width?: number;
+  height?: number;
+  thumbnailUrl?: string;
+  originalUrl?: string;
+  lastModified?: string;
+  created?: string;
+  createdBy?: string;
+  description?: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
+  folder: boolean;
+  children?: DamAsset[];
+}
+
+// AEM Connection Status
+
+export interface AemHealth {
+  enabled: boolean;
+  connected: boolean;
+  authorUrl: string;
+  status: string;
+  message?: string;
+}
+
+export interface AemConfig {
+  enabled: boolean;
+  authorUrl: string;
+  contentRoot: string;
+  damRoot: string;
+  connected: boolean;
+}

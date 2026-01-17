@@ -474,15 +474,211 @@ cd client && npm run storybook
 4. **Flexibility**: 20 component types, multiple variations per request
 5. **Export Ready**: Copy JSON/HTML directly into AEM
 
+## Workflow & Collaborative Review
+
+### 15. Collaborative Review System
+
+**Feature**: Multi-user content review with comments and approval workflow.
+
+**Components**:
+- `review-panel.ts` - Review status, reviewers, approve/reject actions
+- `review-comments.ts` - Threaded comments with field-level annotations
+
+**Review Status Flow**:
+```
+Draft → Pending Review → In Review → Approved/Rejected/Changes Requested
+```
+
+**Backend**:
+- `ReviewService.java` - Review management with in-memory storage
+- `ReviewController.java` - REST endpoints for reviews and comments
+
+**API Endpoints**:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/reviews` | POST | Create new review |
+| `/reviews/{id}` | GET | Get review details |
+| `/reviews/{id}/comments` | POST | Add comment |
+| `/reviews/{id}/approve` | POST | Approve review |
+| `/reviews/{id}/reject` | POST | Reject review |
+| `/reviews/content/{id}/versions` | GET | Version history |
+
+### 16. AEM Workflow Integration
+
+**Feature**: Submit approved content to AEM workflow engine.
+
+**Workflow Models**:
+- **Request for Publication** - Content review before publishing
+- **Request for Activation** - Immediate activation
+- **Review and Approve** - Multi-step approval
+- **Translation Request** - Localization workflow
+
+**Components**:
+- `workflow-panel.ts` - Workflow selection and status tracking
+- `WorkflowService.java` - Workflow submission and tracking
+- `WorkflowController.java` - REST endpoints
+
+**API Endpoints**:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/workflows/models` | GET | List workflow models |
+| `/workflows/submit` | POST | Submit to workflow |
+| `/workflows/{id}/status` | GET | Get status |
+| `/workflows/{id}/advance` | POST | Complete step |
+| `/workflows/{id}` | DELETE | Cancel workflow |
+
+**Integration Flow**:
+```
+Content Generated → Start Review → Add Comments → Approve →
+Submit to Workflow → Complete Steps → Published
+```
+
+## Real AEM SDK Integration
+
+### 17. AEM SDK Connection
+
+**Feature**: Real integration with local AEM SDK instance.
+
+**Configuration** (`application.properties`):
+```properties
+# Enable/disable real AEM integration
+aem.enabled=${AEM_ENABLED:true}
+
+# AEM instance URLs
+aem.author-url=${AEM_AUTHOR_URL:http://localhost:4502}
+
+# Credentials
+aem.username=${AEM_USERNAME:admin}
+aem.password=${AEM_PASSWORD:admin}
+
+# Content paths
+aem.content-root=/content/aem-demo
+aem.dam-root=/content/dam/aem-demo
+```
+
+**Architecture**:
+```
+┌──────────────────────────────────────────────────┐
+│                Spring Boot Backend               │
+│  ├── AemHttpClient (Base HTTP with auth)        │
+│  ├── AemWorkflowClient (Workflow API)           │
+│  ├── AemContentClient (Content storage)         │
+│  └── AemDamClient (DAM operations)              │
+└──────────────────────┬───────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────┐
+│              AEM SDK (Local)                     │
+│  http://localhost:4502                           │
+│  ├── /etc/workflow/* (Workflow API)             │
+│  ├── /content/* (Content Storage)               │
+│  └── /content/dam/* (DAM Assets)                │
+└──────────────────────────────────────────────────┘
+```
+
+**Backend Services**:
+- `AemHttpClient.java` - Base HTTP client with Basic Auth
+- `AemWorkflowClient.java` - Submit/manage real AEM workflows
+- `AemContentClient.java` - Create pages and content fragments
+- `AemDamClient.java` - Browse, search, and select DAM assets
+
+**API Endpoints**:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/aem/health` | GET | Check AEM connection status |
+| `/aem/config` | GET | Get AEM configuration |
+| `/aem/content` | POST | Save content to AEM |
+| `/dam/browse` | GET | List assets in folder |
+| `/dam/search` | GET | Search DAM assets |
+| `/dam/asset` | GET | Get asset details |
+
+### 18. DAM Browser
+
+**Feature**: Browse and select assets from AEM DAM.
+
+**Frontend Component** (`dam-browser.ts`):
+- Modal overlay for asset selection
+- Folder navigation in sidebar
+- Asset grid with thumbnails
+- Search with MIME type filtering
+- Type filters: All, Images, Videos, Documents
+
+**Usage**:
+```typescript
+<dam-browser
+  .open=${this.showDamBrowser}
+  @close=${() => this.showDamBrowser = false}
+  @asset-selected=${this.handleDamAssetSelected}
+></dam-browser>
+```
+
+### 19. AEM Connection Status
+
+**Feature**: Real-time AEM connection indicator.
+
+**Frontend Component** (`aem-status.ts`):
+- Status dot: Green (connected), Red (disconnected), Gray (disabled)
+- Dropdown with connection details
+- Test Connection button
+- Open AEM link when connected
+
+**Status States**:
+- **Connected**: Real AEM integration active
+- **Disconnected**: AEM unreachable, using mock mode
+- **Mock Mode**: AEM integration disabled via config
+
+### AEM SDK Setup
+
+**1. Start AEM SDK**:
+```bash
+java -jar aem-author-p4502.jar
+```
+
+**2. Configure CORS** (create in AEM):
+```
+/apps/aem-demo/osgiconfig/config/com.adobe.granite.cors.impl.CORSPolicyImpl-demo.cfg.json
+```
+```json
+{
+  "alloworigin": ["http://localhost:5173", "http://localhost:10003"],
+  "allowedpaths": ["/content/.*", "/api/.*", "/etc/.*", "/bin/.*"],
+  "supportedmethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  "supportedheaders": ["Authorization", "Content-Type", "Accept"],
+  "supportscredentials": true
+}
+```
+
+**3. Create Content Structure**:
+```
+/content/aem-demo/          # Site root
+/content/dam/aem-demo/      # DAM folder for assets
+```
+
+### Running with AEM Integration
+
+```bash
+# Start AEM SDK
+java -jar aem-author-p4502.jar
+
+# Start Java backend with AEM enabled
+cd agent-java
+AEM_ENABLED=true mvn spring-boot:run
+
+# Start frontend
+cd client && npm run dev
+```
+
 ## Future Enhancements
 
-- [ ] Direct AEM integration via Granite APIs
+- [x] Direct AEM integration via Granite APIs
 - [x] Brand voice training (implemented via brand-config.json)
 - [x] Asset library integration (DAM browser with search, filter, and brand alignment)
-- [ ] Workflow integration
+- [x] Workflow integration (AEM workflow + collaborative review)
 - [ ] Multi-language support
 - [ ] Custom brand config upload
 - [ ] A/B testing for content variations
+- [ ] Real-time collaboration (WebSocket-based)
+- [ ] Integration with AEM Sites Editor
 
 ## Troubleshooting
 

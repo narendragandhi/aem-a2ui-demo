@@ -13,8 +13,13 @@ import './components/brand-panel.js';
 import './components/page-builder.js';
 import './components/aem-preview.js';
 import './components/seo-panel.js';
+import './components/review-panel.js';
+import './components/review-comments.js';
+import './components/workflow-panel.js';
+import './components/dam-browser.js';
+import './components/aem-status.js';
 
-import { ContentSuggestion, ImageAsset } from './lib/types.js';
+import { ContentSuggestion, ImageAsset, Review, DamAsset } from './lib/types.js';
 import { HistoryService } from './services/history-service.js';
 import { ContentWizard } from './components/content-wizard.js';
 import { BrandPanel } from './components/brand-panel.js';
@@ -71,6 +76,10 @@ export class AemAssistant extends LitElement {
   @state() private currentSectionIndex = 0;
   @state() private selectedComponentType = 'hero';
   @state() private wizardSelectedAsset: ImageAsset | null = null;
+  @state() private currentReview: Review | null = null;
+  @state() private showCommentsPanel = false;
+  @state() private showDamBrowser = false;
+  @state() private selectedDamAsset: DamAsset | null = null;
 
   private _generationTask = new Task(this, {
     task: async ([prompt], { signal }) => {
@@ -216,6 +225,22 @@ export class AemAssistant extends LitElement {
       display: grid;
       grid-template-columns: min(50%, 600px) 1fr;
       height: calc(100vh - 60px);
+    }
+
+    .right-panel-content {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .collaboration-panels {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--spectrum-gray-50);
+      border-top: 1px solid var(--spectrum-gray-300);
     }
 
     /* Left Panel - Input & Suggestions */
@@ -473,13 +498,24 @@ export class AemAssistant extends LitElement {
     const isAI = this.selectedAgent.hasAI;
 
     return html`
-      <assistant-header
-        .agents=${AGENTS}
-        .agentUrl=${this.agentUrl}
-        .isAI=${this.selectedAgent.hasAI}
-        @agent-changed=${this.handleAgentChange}
-        @toggle-theme=${this.toggleTheme}
-      ></assistant-header>
+      <div class="header-wrapper" style="display: flex; align-items: center; gap: 12px;">
+        <assistant-header
+          style="flex: 1;"
+          .agents=${AGENTS}
+          .agentUrl=${this.agentUrl}
+          .isAI=${this.selectedAgent.hasAI}
+          @agent-changed=${this.handleAgentChange}
+          @toggle-theme=${this.toggleTheme}
+        ></assistant-header>
+        <aem-status style="margin-right: 16px;"></aem-status>
+      </div>
+
+      <!-- DAM Browser Modal -->
+      <dam-browser
+        .open=${this.showDamBrowser}
+        @close=${() => this.showDamBrowser = false}
+        @asset-selected=${this.handleDamAssetSelected}
+      ></dam-browser>
 
       <div class="main-layout">
         <!-- Left Panel: Input & Suggestions -->
@@ -583,13 +619,44 @@ export class AemAssistant extends LitElement {
             .sections=${this.pageSections}
           ></aem-preview>
         ` : html`
-          <assistant-preview
-            .appliedContent=${this.appliedContent}
-            @copy-content=${this.handleCopyContent}
-            @content-updated=${this.handleContentUpdated}
-          ></assistant-preview>
+          <div class="right-panel-content">
+            <assistant-preview
+              .appliedContent=${this.appliedContent}
+              @copy-content=${this.handleCopyContent}
+              @content-updated=${this.handleContentUpdated}
+            ></assistant-preview>
+
+            <!-- Review & Workflow Panels -->
+            ${this.appliedContent ? html`
+              <div class="collaboration-panels">
+                <review-panel
+                  .content=${this.appliedContent}
+                  .contentId=${this.appliedContent?.id || 'content-' + Date.now()}
+                  @review-started=${this.handleReviewStarted}
+                  @review-approved=${this.handleReviewApproved}
+                  @review-rejected=${this.handleReviewRejected}
+                  @open-comments=${this.handleOpenComments}
+                ></review-panel>
+
+                <workflow-panel
+                  .contentId=${this.appliedContent?.id || 'content-' + Date.now()}
+                  .review=${this.currentReview}
+                  @workflow-started=${this.handleWorkflowStarted}
+                  @workflow-advanced=${this.handleWorkflowAdvanced}
+                ></workflow-panel>
+              </div>
+            ` : ''}
+          </div>
         `}
       </div>
+
+      <!-- Review Comments Slide Panel -->
+      <review-comments
+        .open=${this.showCommentsPanel}
+        .review=${this.currentReview}
+        @close=${() => this.showCommentsPanel = false}
+        @comment-added=${this.handleCommentAdded}
+      ></review-comments>
 
       ${this.showCopiedToast ? html`
         <div class="toast">Copied to clipboard!</div>
@@ -1132,6 +1199,60 @@ export class AemAssistant extends LitElement {
 
   private handleCopySuggestion(e: CustomEvent) {
     this.copyToClipboard(e.detail.suggestion);
+  }
+
+  // Review & Workflow Event Handlers
+  private handleReviewStarted(e: CustomEvent) {
+    this.currentReview = e.detail.review;
+    console.log('Review started:', this.currentReview);
+  }
+
+  private handleReviewApproved(e: CustomEvent) {
+    this.currentReview = e.detail.review;
+    console.log('Review approved:', this.currentReview);
+  }
+
+  private handleReviewRejected(e: CustomEvent) {
+    this.currentReview = e.detail.review;
+    console.log('Review rejected:', this.currentReview);
+  }
+
+  private handleOpenComments(e: CustomEvent) {
+    this.currentReview = e.detail.review;
+    this.showCommentsPanel = true;
+  }
+
+  private handleCommentAdded(e: CustomEvent) {
+    this.currentReview = e.detail.review;
+  }
+
+  private handleWorkflowStarted(e: CustomEvent) {
+    console.log('Workflow started:', e.detail.workflow);
+  }
+
+  private handleWorkflowAdvanced(e: CustomEvent) {
+    console.log('Workflow advanced:', e.detail.workflow);
+  }
+
+  private handleDamAssetSelected(e: CustomEvent) {
+    const asset: DamAsset = e.detail.asset;
+    this.selectedDamAsset = asset;
+    console.log('DAM asset selected:', asset);
+
+    // If we have applied content, update its image URL
+    if (this.appliedContent && asset.originalUrl) {
+      this.appliedContent = {
+        ...this.appliedContent,
+        imageUrl: asset.originalUrl,
+        imageAlt: asset.title || asset.name
+      };
+    }
+
+    this.showDamBrowser = false;
+  }
+
+  private openDamBrowser() {
+    this.showDamBrowser = true;
   }
 
   private async copyToClipboard(content: ContentSuggestion, format: 'json' | 'html' = 'json') {
