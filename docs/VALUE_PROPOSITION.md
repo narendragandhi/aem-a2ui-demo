@@ -80,8 +80,20 @@ AEM authors spend **60-70% of their time** on repetitive content tasks:
 
 > "An AI assistant that lives inside AEM's authoring interface, helping authors create on-brand content in seconds instead of minutes—using Google's A2UI protocol and Embabel's enterprise AI framework."
 
-## Competitive Advantages
+## Synergy with AEM Core Features
 
+The "a2ui" approach is not a replacement for AEM's core features, but a modernization of the interaction layer that unlocks their full potential. It compliments the powerful AEM backend by providing a more flexible, efficient, and user-friendly interface.
+
+Think of it as decoupling AEM's brain (content, logic, workflow) from its face (the user interface).
+
+| AEM Core Feature | How This Project Compliments It |
+|------------------|---------------------------------|
+| **Content Modeling** (Content Fragments, Templates) | The UI consumes and interacts with AEM's content structures. The AI assistant generates content that fits these models, and the Page Builder provides a fluid canvas for assembly. AEM provides the content "guardrails"; a2ui provides a better authoring experience within them. |
+| **AEM Assets (DAM)** | The modern UI interacts with the DAM via APIs for all asset needs. An asset picker would connect directly to the DAM, and AI-suggested images would be references to centrally-governed DAM assets, ensuring brand consistency and optimization. |
+| **AEM Workflows** | The UI acts as a user-friendly "front door" to AEM's powerful workflow engine. A "Submit for Review" button in the UI would trigger a standard AEM review and approval workflow in the backend, with the status reflected back to the author's dashboard. |
+| **AEM JCR (Repository)** | All content created in the modern UI is ultimately persisted in the JCR. The application sends structured content (as JSON) to AEM, which then handles the storage. The JCR remains the single source of truth; a2ui is just a more modern client for it. |
+
+## Competitive Advantages
 - **Open Standards**: A2UI (Google) + Embabel (Spring creator)
 - **Not a Black Box**: Template fallback when AI unavailable
 - **AEM-Native**: Designed for AEM authoring workflow

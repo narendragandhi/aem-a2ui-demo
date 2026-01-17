@@ -83,6 +83,23 @@ export class AssistantHeader extends LitElement {
       cursor: pointer;
       margin-left: 10px;
     }
+
+    @media (max-width: 600px) {
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .agent-selector {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .agent-selector select {
+        flex-grow: 1;
+      }
+    }
   `;
 
   render() {

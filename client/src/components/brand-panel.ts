@@ -249,6 +249,18 @@ export class BrandPanel extends LitElement {
           </div>
 
           <div class="brand-section">
+            <div class="section-title">Visual Style</div>
+            <div class="tone-tags">
+              ${brand.visuals.styleKeywords.map(k => html`<span class="tone-tag">${k}</span>`)}
+            </div>
+            <div class="color-swatches" style="margin-top: 12px;">
+              ${Object.entries(brand.visuals.brandColors).map(([name, color]) => html`
+                <div class="color-swatch" style="background: ${color}" data-name=${name}></div>
+              `)}
+            </div>
+          </div>
+
+          <div class="brand-section">
             <div class="section-title">Avoid</div>
             <div class="avoid-list">
               ${brand.voice.avoid.map(a => html`<span class="avoid-tag">✕ ${a}</span>`)}

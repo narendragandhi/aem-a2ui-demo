@@ -1,5 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { Task } from '@lit/task';
+import brandConfig from "./data/brand-config.json";
 import './spectrum-imports.js';
 import './components/assistant-header.js';
 import './components/assistant-input.js';
@@ -8,24 +10,54 @@ import './components/assistant-preview.js';
 import './components/error-message.js';
 import './components/content-wizard.js';
 import './components/brand-panel.js';
+import './components/page-builder.js';
+import './components/aem-preview.js';
+import './components/seo-panel.js';
 
-import { ContentSuggestion } from './lib/types.js';
+import { ContentSuggestion, ImageAsset } from './lib/types.js';
 import { HistoryService } from './services/history-service.js';
 import { ContentWizard } from './components/content-wizard.js';
 import { BrandPanel } from './components/brand-panel.js';
+import { PageBuilder } from './components/page-builder.js';
+import { AemPreview } from './components/aem-preview.js';
+import './components/asset-browser.js';
+
+interface PageSection {
+  id: string;
+  type: string;
+  content: ContentSuggestion | null;
+  status: 'empty' | 'generating' | 'ready';
+}
 
 const AGENTS = [
   { name: 'Java Agent + Ollama', url: 'http://localhost:10003', port: 10003, hasAI: true },
   { name: 'Python Agent', url: 'http://localhost:10002', port: 10002, hasAI: false },
 ];
 
+// Local image type for predefined images (simpler than the full ImageAsset interface)
+interface LocalImageAsset {
+  url: string;
+  tags: string[];
+}
+
+const PREDEFINED_IMAGES: LocalImageAsset[] = [
+  { url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200', tags: ['office', 'tech', 'clean', 'professional', 'minimalist'] }, // Hero office
+  { url: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200', tags: ['abstract', 'gradient', 'dynamic', 'modern', 'colorful'] }, // Banner abstract
+  { url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200', tags: ['meeting', 'collaboration', 'people', 'diverse', 'professional'] }, // Team meeting
+  { url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200', tags: ['coding', 'development', 'software', 'screen', 'focused'] }, // Coding
+  { url: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200', tags: ['laptop', 'desk', 'workspace', 'home office', 'minimalist'] }, // Laptop desk
+  { url: 'https://images.unsplash.com/photo-1522204523234-87295a3ad7f0?w=1200', tags: ['team', 'discussion', 'startup', 'innovation', 'casual'] }, // Startup team
+  { url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800', tags: ['product', 'ecommerce', 'watch', 'luxury', 'clean'] }, // Product watch
+  { url: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=800', tags: ['video', 'media', 'creative', 'studio', 'production'] }, // Video production
+  { url: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800', tags: ['analytics', 'data', 'charts', 'business', 'strategy'] }, // Data analytics
+  { url: 'https://images.unsplash.com/photo-1488590528505-98d2f092d077?w=1200', tags: ['server', 'datacenter', 'cloud', 'security', 'it infrastructure'] }, // Server room
+];
+
 @customElement('aem-assistant')
 export class AemAssistant extends LitElement {
   @property({ type: String }) agentUrl = 'http://localhost:10003';
 
-  @state() private loading = false;
   @state() private selectedAgent = AGENTS[0];
-  @state() private error = '';
   @state() private suggestions: ContentSuggestion[] = [];
   @state() private selectedSuggestion: ContentSuggestion | null = null;
   @state() private appliedContent: ContentSuggestion | null = null;
@@ -34,14 +66,60 @@ export class AemAssistant extends LitElement {
   @state() private refinementMode = false;
   @state() private history: ContentSuggestion[] = [];
   @state() private theme: 'light' | 'dark' = 'light';
-  @state() private viewMode: 'wizard' | 'quick' = 'wizard';
+  @state() private viewMode: 'wizard' | 'quick' | 'pagebuilder' = 'wizard';
+  @state() private pageSections: PageSection[] = [];
+  @state() private currentSectionIndex = 0;
+  @state() private selectedComponentType = 'hero';
+  @state() private wizardSelectedAsset: ImageAsset | null = null;
+
+  private _generationTask = new Task(this, {
+    task: async ([prompt], { signal }) => {
+      if (!prompt.trim()) {
+        return [];
+      }
+
+      const response = await fetch(`${this.agentUrl}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          message: {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const suggestions = this.parseAgentResponse(data);
+
+      if (suggestions.length === 0) {
+        throw new Error('No suggestions generated. Try a different prompt.');
+      } else {
+        this.suggestions = suggestions;
+        this.selectedSuggestion = suggestions[0];
+        this.appliedContent = suggestions[0];
+        HistoryService.addSuggestion(suggestions[0]);
+        this.history = HistoryService.getHistory();
+        return suggestions;
+      }
+    },
+    args: () => [this.prompt]
+  });
+
 
   static styles = css`
     :host {
       display: block;
       font-family: adobe-clean, 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       height: 100vh;
-      overflow: hidden;
       background-color: var(--spectrum-gray-100, #f5f5f5);
       color: var(--spectrum-gray-900, #1a1a1a);
     }
@@ -136,9 +214,8 @@ export class AemAssistant extends LitElement {
     /* Main Layout */
     .main-layout {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: min(50%, 600px) 1fr;
       height: calc(100vh - 60px);
-      overflow: hidden;
     }
 
     /* Left Panel - Input & Suggestions */
@@ -323,8 +400,72 @@ export class AemAssistant extends LitElement {
     /* Wizard Container */
     .wizard-container {
       flex: 1;
-      overflow-y: auto;
-      padding-bottom: 20px;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 800px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        height: auto;
+        min-height: calc(100vh - 60px);
+      }
+
+      .left-panel {
+        min-height: 50vh;
+      }
+
+      .view-mode-toggle {
+        padding: 12px;
+      }
+
+      .view-mode-toggle sp-action-button {
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+
+      .history-section {
+        max-height: 150px;
+        padding: 12px;
+      }
+
+      .refinement-section {
+        padding: 12px;
+      }
+
+      .refinement-input {
+        flex-direction: column;
+      }
+
+      .refinement-input button {
+        width: 100%;
+      }
+    }
+		
+		@media (max-width: 480px) {
+      :host {
+        font-size: 14px;
+      }
+
+      .view-mode-toggle sp-action-button {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+
+      .toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+      }
     }
   `;
 
@@ -346,6 +487,14 @@ export class AemAssistant extends LitElement {
           <!-- Brand Guidelines Panel -->
           <brand-panel></brand-panel>
 
+          <!-- SEO Panel -->
+          ${this.appliedContent?.seo ? html`
+            <seo-panel
+              .seoSuggestions=${this.appliedContent.seo}
+              .seoScore=${this.appliedContent.seoScore}
+            ></seo-panel>
+          ` : ''}
+
           <!-- View Mode Toggle -->
           <div class="view-mode-toggle">
             <sp-action-group selects="single" @change=${this.handleModeChange}>
@@ -354,6 +503,9 @@ export class AemAssistant extends LitElement {
               </sp-action-button>
               <sp-action-button ?selected=${this.viewMode === 'quick'} value="quick">
                 Quick
+              </sp-action-button>
+              <sp-action-button ?selected=${this.viewMode === 'pagebuilder'} value="pagebuilder">
+                Page Builder
               </sp-action-button>
             </sp-action-group>
           </div>
@@ -364,6 +516,15 @@ export class AemAssistant extends LitElement {
               <content-wizard
                 @generate=${this.handleWizardGenerate}
               ></content-wizard>
+            </div>
+          ` : this.viewMode === 'pagebuilder' ? html`
+            <!-- Page Builder Mode -->
+            <div class="wizard-container">
+              <page-builder
+                @sections-changed=${this.handleSectionsChanged}
+                @generate-section=${this.handleGenerateSection}
+                @page-ready=${this.handlePageReady}
+              ></page-builder>
             </div>
           ` : html`
             <!-- Quick Mode -->
@@ -417,11 +578,17 @@ export class AemAssistant extends LitElement {
           `}
         </div>
 
-        <assistant-preview
+        ${this.viewMode === 'pagebuilder' ? html`
+          <aem-preview
+            .sections=${this.pageSections}
+          ></aem-preview>
+        ` : html`
+          <assistant-preview
             .appliedContent=${this.appliedContent}
             @copy-content=${this.handleCopyContent}
             @content-updated=${this.handleContentUpdated}
           ></assistant-preview>
+        `}
       </div>
 
       ${this.showCopiedToast ? html`
@@ -489,12 +656,71 @@ export class AemAssistant extends LitElement {
     const target = e.target as HTMLElement;
     const selected = target.querySelector('[selected]');
     if (selected) {
-      this.viewMode = selected.getAttribute('value') as 'wizard' | 'quick';
+      this.viewMode = selected.getAttribute('value') as 'wizard' | 'quick' | 'pagebuilder';
+      // Reset page sections when switching to pagebuilder
+      if (this.viewMode === 'pagebuilder') {
+        this.pageSections = [];
+      }
     }
   }
 
+  private async handleGenerateSection(e: CustomEvent) {
+    const { sectionId, componentType, prompt } = e.detail;
+
+    try {
+      const response = await fetch(`${this.agentUrl}/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          message: {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const suggestions = this.parseAgentResponse(data);
+
+      if (suggestions.length > 0) {
+        // Update the page builder component - it will notify us via sections-changed
+        const pageBuilder = this.shadowRoot?.querySelector('page-builder') as PageBuilder;
+        if (pageBuilder) {
+          pageBuilder.updateSectionContent(sectionId, suggestions[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Section generation error:', error);
+    }
+  }
+
+  private handleSectionsChanged(e: CustomEvent) {
+    const { sections } = e.detail;
+    this.pageSections = sections;
+  }
+
+  private handlePageReady(e: CustomEvent) {
+    const { sections } = e.detail;
+    this.pageSections = sections;
+    console.log('Page ready with sections:', sections);
+  }
+
   private async handleWizardGenerate(e: CustomEvent) {
-    const { componentType, tone, imageStyle, description, prompt } = e.detail;
+    const { componentType, tone, imageStyle, description, prompt, selectedAsset } = e.detail;
+    console.log('handleWizardGenerate - componentType from wizard:', componentType);
+    console.log('handleWizardGenerate - selectedAsset from wizard:', selectedAsset);
+
+    // Store the selected component type for use in mock suggestions
+    this.selectedComponentType = componentType;
+    this.wizardSelectedAsset = selectedAsset || null;
+    console.log('handleWizardGenerate - stored selectedComponentType:', this.selectedComponentType);
 
     // Set the prompt and generate
     this.prompt = prompt;
@@ -610,6 +836,32 @@ export class AemAssistant extends LitElement {
       suggestions.push(this.createMockSuggestion('3'));
     }
 
+    // Override componentType with user's selection from wizard if available
+    if (this.selectedComponentType) {
+      const normalizedType = this.selectedComponentType.toLowerCase();
+      console.log('Overriding componentType in suggestions with:', normalizedType);
+      suggestions.forEach(suggestion => {
+        suggestion.componentType = normalizedType;
+
+        // Use the wizard-selected asset if available, otherwise auto-select based on brand alignment
+        if (this.wizardSelectedAsset) {
+          suggestion.imageUrl = this.wizardSelectedAsset.url;
+          suggestion.selectedAssetId = this.wizardSelectedAsset.id;
+          suggestion.visualScore = this.wizardSelectedAsset.brandAligned ? 10 : 5;
+          console.log('Using wizard-selected asset:', this.wizardSelectedAsset.name);
+        } else {
+          const { url, score: visualScore } = this.getBrandAlignedImage(normalizedType);
+          suggestion.imageUrl = url;
+          suggestion.visualScore = visualScore;
+        }
+
+        // Generate SEO suggestions
+        const { seo, seoScore } = this.generateSeoSuggestions(suggestion);
+        suggestion.seo = seo;
+        suggestion.seoScore = seoScore;
+      });
+    }
+
     return suggestions;
   }
 
@@ -644,7 +896,11 @@ export class AemAssistant extends LitElement {
   }
 
   private createMockSuggestion(variant: string): ContentSuggestion {
-    const componentType = this.detectComponentType(this.prompt);
+    // Use the stored component type from wizard, or detect from prompt for quick mode
+    // Normalize to lowercase for consistent matching in preview
+    const rawType = this.selectedComponentType || this.detectComponentType(this.prompt);
+    const componentType = rawType.toLowerCase();
+    console.log('createMockSuggestion - rawType:', rawType, 'componentType:', componentType, 'selectedComponentType:', this.selectedComponentType);
     const variations: Record<string, Partial<ContentSuggestion>> = {
       '1': {
         title: 'Unleash Your Potential',
@@ -664,38 +920,186 @@ export class AemAssistant extends LitElement {
     };
 
     const base = variations[variant] || variations['1'];
+    const { url: imageUrl, score: visualScore } = this.getBrandAlignedImage(componentType);
 
-    return {
+    const mockSuggestion: ContentSuggestion = {
       id: `mock-${variant}-${Date.now()}`,
       title: base.title!,
       subtitle: base.subtitle,
       description: base.description!,
       ctaText: componentType === 'product' ? 'Shop Now' : 'Get Started',
       ctaUrl: '/get-started',
-      imageUrl: this.getImageForType(componentType),
+      imageUrl,
       imageAlt: `${componentType} image`,
       componentType,
       price: componentType === 'product' ? '$99.99' : undefined,
+      visualScore,
     };
+
+    // Generate SEO suggestions for mock content
+    const { seo, seoScore } = this.generateSeoSuggestions(mockSuggestion);
+    mockSuggestion.seo = seo;
+    mockSuggestion.seoScore = seoScore;
+
+    return mockSuggestion;
   }
 
   public detectComponentType(prompt: string): string {
     const lower = prompt.toLowerCase();
+    // Marketing
     if (lower.includes('hero')) return 'hero';
-    if (lower.includes('product')) return 'product';
+    if (lower.includes('banner') || lower.includes('promo')) return 'banner';
+    if (lower.includes('carousel') || lower.includes('slider')) return 'carousel';
+    // Content
     if (lower.includes('teaser')) return 'teaser';
-    if (lower.includes('banner')) return 'banner';
+    if (lower.includes('quote') || lower.includes('testimonial')) return 'quote';
+    if (lower.includes('accordion') || lower.includes('faq')) return 'accordion';
+    if (lower.includes('tab')) return 'tabs';
+    // Commerce
+    if (lower.includes('product')) return 'product';
+    if (lower.includes('pricing') || lower.includes('price table')) return 'pricing';
+    // Media
+    if (lower.includes('video')) return 'video';
+    if (lower.includes('gallery')) return 'gallery';
+    // Navigation
+    if (lower.includes('navigation') || lower.includes('nav') || lower.includes('menu')) return 'navigation';
+    if (lower.includes('footer')) return 'footer';
+    if (lower.includes('breadcrumb')) return 'breadcrumb';
+    // Interactive
+    if (lower.includes('form') || lower.includes('contact')) return 'form';
+    if (lower.includes('search')) return 'search';
+    if (lower.includes('cta') || lower.includes('call to action')) return 'cta';
+    // Social
+    if (lower.includes('social') || lower.includes('share')) return 'socialshare';
+    if (lower.includes('team')) return 'team';
     return 'hero';
   }
 
-  private getImageForType(type: string): string {
-    const images: Record<string, string> = {
-      hero: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200',
-      product: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
-      teaser: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600',
-      banner: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200',
+  private generateSeoSuggestions(content: ContentSuggestion): { seo: ContentSuggestion['seo'], seoScore: number } {
+    const SEO_KEYWORDS_MAP: Record<string, string[]> = {
+      hero: ['brand recognition', 'customer engagement', 'marketing strategy', 'digital transformation'],
+      product: ['buy online', 'product features', 'best price', 'customer reviews'],
+      teaser: ['learn more', 'read article', 'latest news', 'industry insights'],
+      banner: ['limited offer', 'shop now', 'exclusive deal', 'save big'],
+      // Add more component types and keywords
     };
-    return images[type] || images.hero;
+
+    const componentKeywords = SEO_KEYWORDS_MAP[content.componentType.toLowerCase()] || [];
+    const mainKeyword = componentKeywords[0] || content.title.split(' ')[0].toLowerCase();
+
+    // Simulate meta title and description generation
+    const metaTitle = `${content.title} | ${brandConfig.brand.name} - ${brandConfig.brand.tagline}`;
+    const metaDescription = `${content.description.substring(0, 140)}... Discover more about ${mainKeyword} and how ${brandConfig.brand.name} can help.`;
+
+    // Simple readability score (e.g., based on description length)
+    const words = content.description.split(/\s+/).filter(word => word.length > 0).length;
+    const sentences = content.description.split(/[.!?]+/).filter(sentence => sentence.length > 0).length;
+    const readabilityScore = sentences > 0 ? (206.835 - 1.015 * (words / sentences) - 84.6 * (3 / words)) : 50; // Flesch-Kincaid style approximation
+
+    // Basic keyword density check
+    let keywordCount = 0;
+    const contentLower = content.description.toLowerCase();
+    for (const kw of componentKeywords) {
+        if (contentLower.includes(kw.toLowerCase())) {
+            keywordCount++;
+        }
+    }
+    const keywordDensity = words > 0 ? (keywordCount / words) * 100 : 0;
+
+    // Calculate SEO Score
+    let seoScore = 0;
+    const issues: string[] = [];
+
+    // Title length
+    if (content.title.length >= 20 && content.title.length <= 60) {
+        seoScore += 20;
+    } else {
+        issues.push('Title length not optimal (20-60 chars).');
+    }
+
+    // Meta Description length
+    if (metaDescription.length >= 50 && metaDescription.length <= 160) {
+        seoScore += 20;
+    } else {
+        issues.push('Meta Description length not optimal (50-160 chars).');
+    }
+
+    // Main keyword in title
+    if (content.title.toLowerCase().includes(mainKeyword)) {
+        seoScore += 15;
+    } else {
+        issues.push(`Main keyword "${mainKeyword}" not found in title.`);
+    }
+
+    // Main keyword in description
+    if (content.description.toLowerCase().includes(mainKeyword)) {
+        seoScore += 15;
+    } else {
+        issues.push(`Main keyword "${mainKeyword}" not found in description.`);
+    }
+
+    // Readability
+    if (readabilityScore >= 50) { // Aim for a decent score
+        seoScore += 10;
+    } else {
+        issues.push('Content readability could be improved.');
+    }
+
+    // Keyword density (simple check for presence for now)
+    if (keywordCount > 0) {
+        seoScore += 10;
+    } else {
+        issues.push('No relevant keywords found in content body.');
+    }
+
+    // Add remaining score for general content quality, length etc.
+    seoScore = Math.min(100, seoScore); // Cap at 100
+
+    return {
+      seo: {
+        keywords: componentKeywords,
+        metaTitle,
+        metaDescription,
+        readabilityScore: parseFloat(readabilityScore.toFixed(1)),
+        keywordDensity: [{ keyword: mainKeyword, density: parseFloat(keywordDensity.toFixed(2)) }],
+        issues: issues.length > 0 ? issues : undefined,
+      },
+      seoScore,
+    };
+  }
+
+  private getBrandAlignedImage(componentType: string): { url: string; score: number } {
+    const brandVisualKeywords = brandConfig.visuals.styleKeywords.map(k => k.toLowerCase());
+
+    let bestMatch: LocalImageAsset | null = null;
+    let highestScore = -1;
+
+    for (const imageAsset of PREDEFINED_IMAGES) {
+      let currentScore = 0;
+      // Score based on matching brand visual keywords
+      for (const keyword of brandVisualKeywords) {
+        if (imageAsset.tags.includes(keyword)) {
+          currentScore++;
+        }
+      }
+
+      // Add score for component type relevance (simple for now)
+      if (imageAsset.tags.includes(componentType.toLowerCase())) {
+        currentScore += 2; // Give more weight to component type
+      }
+
+      if (currentScore > highestScore) {
+        highestScore = currentScore;
+        bestMatch = imageAsset;
+      }
+    }
+
+    if (bestMatch) {
+      return { url: bestMatch.url, score: highestScore };
+    } else {
+      // Fallback to a default image if no match
+      return { url: PREDEFINED_IMAGES[0].url, score: 0 };
+    }
   }
 
   private handleCopyContent(e: CustomEvent) {

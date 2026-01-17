@@ -39,5 +39,15 @@
       "See It In Action",
       "Get Your Demo"
     ]
+  },
+  "visuals": {
+    "styleKeywords": ["natural light", "minimalist", "clean", "tech", "office"],
+    "brandColors": {
+      "primary": "#1473E6",
+      "secondary": "#0D66D0",
+      "accent": "#FF8F00",
+      "neutral_light": "#F5F5F5",
+      "neutral_dark": "#4B4B4B"
+    }
   }
 }

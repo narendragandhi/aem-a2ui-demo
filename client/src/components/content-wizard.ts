@@ -1,6 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import '../spectrum-imports.js';
+import './asset-browser.js';
+import { ImageAsset } from '../lib/types.js';
+import { AssetBrowser } from './asset-browser.js';
 
 // Component types with icons and descriptions
 const COMPONENT_TYPES = [
@@ -210,11 +213,15 @@ export class ContentWizard extends LitElement {
   @state() private description = '';
   @state() private loading = false;
   @state() private selectedCategory = 'all';
+  @state() private showAssetBrowser = false;
+  @state() private selectedAsset: ImageAsset | null = null;
 
   static styles = css`
     :host {
-      display: block;
-      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-sizing: border-box;
       max-width: 800px;
       margin: 0 auto;
       --spectrum-alias-background-color-default: var(--spectrum-gray-100);
@@ -282,13 +289,16 @@ export class ContentWizard extends LitElement {
       background: var(--spectrum-positive-background-color-default, #2d9d78);
     }
 
-    /* Step Content */
     .step-content {
       background: var(--spectrum-gray-50, white);
       border-radius: 8px;
       padding: 32px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
     }
 
     .step-title {
@@ -335,11 +345,12 @@ export class ContentWizard extends LitElement {
     /* Component Type Grid */
     .type-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
-      max-height: 400px;
-      overflow-y: auto;
       padding-right: 8px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      flex: 1;
     }
 
     .type-grid::-webkit-scrollbar {
@@ -475,6 +486,102 @@ export class ContentWizard extends LitElement {
       color: var(--spectrum-gray-800, #4b4b4b);
       margin-bottom: 12px;
       display: block;
+    }
+
+    /* Asset Selection */
+    .asset-selection {
+      margin-bottom: 24px;
+    }
+
+    .asset-preview-container {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .selected-asset-card {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      background: var(--spectrum-gray-100, #f5f5f5);
+      border-radius: 8px;
+      border: 2px solid var(--spectrum-accent-color-default, #1473e6);
+    }
+
+    .selected-asset-thumbnail {
+      width: 120px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .selected-asset-info {
+      flex: 1;
+    }
+
+    .selected-asset-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--spectrum-gray-900, #1a1a1a);
+      margin-bottom: 4px;
+    }
+
+    .selected-asset-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .selected-asset-tag {
+      background: var(--spectrum-gray-200, #f0f0f0);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      color: var(--spectrum-gray-700, #666);
+    }
+
+    .selected-asset-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--spectrum-positive-background-color-default, #2d9d78);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    .no-asset-selected {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: var(--spectrum-gray-100, #f5f5f5);
+      border-radius: 8px;
+      border: 2px dashed var(--spectrum-gray-400, #ccc);
+      text-align: center;
+    }
+
+    .no-asset-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    .no-asset-text {
+      font-size: 13px;
+      color: var(--spectrum-gray-600, #999);
+      margin-bottom: 12px;
+    }
+
+    .asset-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     .image-style-grid {
@@ -653,6 +760,99 @@ export class ContentWizard extends LitElement {
       font-size: 14px;
       color: var(--spectrum-gray-700, #666);
     }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      :host {
+        padding: 16px;
+      }
+
+      .step-content {
+        padding: 20px;
+      }
+
+      .step-title {
+        font-size: 18px;
+      }
+
+      .type-grid {
+        gap: 10px;
+        max-height: 350px;
+      }
+
+      .tone-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .image-style-grid {
+        flex-wrap: wrap;
+      }
+
+      .image-style-card {
+        flex: 1 1 45%;
+      }
+
+      .summary-items {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .step-navigation {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .step-navigation sp-button {
+        width: 100%;
+      }
+
+      .category-filter {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      :host {
+        padding: 12px;
+      }
+
+      .step-content {
+        padding: 16px;
+      }
+
+      .tone-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .type-card {
+        padding: 12px;
+      }
+
+      .type-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+      }
+
+      .step-indicator {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .step-connector {
+        display: none;
+      }
+
+      .example-chips {
+        flex-direction: column;
+      }
+
+      .example-chip {
+        text-align: center;
+      }
+    }
   `;
 
   render() {
@@ -671,6 +871,13 @@ export class ContentWizard extends LitElement {
           </div>
         ` : ''}
       </div>
+
+      <asset-browser
+        .open=${this.showAssetBrowser}
+        .selectedAssetId=${this.selectedAsset?.id || null}
+        @close=${() => this.showAssetBrowser = false}
+        @asset-selected=${this.handleAssetSelected}
+      ></asset-browser>
     `;
   }
 
@@ -816,7 +1023,7 @@ export class ContentWizard extends LitElement {
 
     return html`
       <h2 class="step-title">Customize your ${selectedTypeInfo?.name}</h2>
-      <p class="step-subtitle">Set the tone and describe what you need</p>
+      <p class="step-subtitle">Set the tone, select an image, and describe what you need</p>
 
       <label class="section-label">Tone & Voice</label>
       <div class="tone-grid">
@@ -843,6 +1050,48 @@ export class ContentWizard extends LitElement {
             <div class="image-style-name">${style.name}</div>
           </div>
         `)}
+      </div>
+
+      <div class="asset-selection">
+        <label class="section-label">Select Image from Library (Optional)</label>
+        <div class="asset-preview-container">
+          ${this.selectedAsset ? html`
+            <div class="selected-asset-card">
+              <img
+                class="selected-asset-thumbnail"
+                src="${this.selectedAsset.thumbnailUrl || this.selectedAsset.url}"
+                alt="${this.selectedAsset.name}"
+              />
+              <div class="selected-asset-info">
+                <div class="selected-asset-name">${this.selectedAsset.name}</div>
+                <div class="selected-asset-tags">
+                  ${this.selectedAsset.tags.slice(0, 4).map(tag => html`
+                    <span class="selected-asset-tag">${tag}</span>
+                  `)}
+                </div>
+                ${this.selectedAsset.brandAligned ? html`
+                  <span class="selected-asset-badge">\u2713 Brand Aligned</span>
+                ` : ''}
+              </div>
+            </div>
+            <div class="asset-actions">
+              <sp-button variant="secondary" @click=${() => this.showAssetBrowser = true}>
+                Change
+              </sp-button>
+              <sp-button variant="secondary" @click=${() => this.selectedAsset = null}>
+                Remove
+              </sp-button>
+            </div>
+          ` : html`
+            <div class="no-asset-selected">
+              <div class="no-asset-icon">\u{1F5BC}</div>
+              <div class="no-asset-text">No image selected. Browse the asset library to choose one.</div>
+              <sp-button variant="accent" @click=${() => this.showAssetBrowser = true}>
+                Browse Asset Library
+              </sp-button>
+            </div>
+          `}
+        </div>
       </div>
 
       <div class="description-container">
@@ -914,6 +1163,32 @@ export class ContentWizard extends LitElement {
           </div>
         </div>
       </div>
+
+      ${this.selectedAsset ? html`
+        <div class="summary" style="margin-top: 16px;">
+          <div class="summary-title">Selected Image</div>
+          <div class="asset-preview-container">
+            <div class="selected-asset-card">
+              <img
+                class="selected-asset-thumbnail"
+                src="${this.selectedAsset.thumbnailUrl || this.selectedAsset.url}"
+                alt="${this.selectedAsset.name}"
+              />
+              <div class="selected-asset-info">
+                <div class="selected-asset-name">${this.selectedAsset.name}</div>
+                <div class="selected-asset-tags">
+                  ${this.selectedAsset.tags.slice(0, 4).map(tag => html`
+                    <span class="selected-asset-tag">${tag}</span>
+                  `)}
+                </div>
+                ${this.selectedAsset.brandAligned ? html`
+                  <span class="selected-asset-badge">\u2713 Brand Aligned</span>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
 
       <label class="section-label">Content Description</label>
       <div class="description-preview">
@@ -1079,6 +1354,11 @@ export class ContentWizard extends LitElement {
     }
   }
 
+  private handleAssetSelected(e: CustomEvent) {
+    this.selectedAsset = e.detail.asset;
+    this.showAssetBrowser = false;
+  }
+
   private generate() {
     this.loading = true;
 
@@ -1093,7 +1373,8 @@ export class ContentWizard extends LitElement {
         tone: this.selectedTone,
         imageStyle: this.selectedImageStyle,
         description: this.description,
-        prompt: prompt
+        prompt: prompt,
+        selectedAsset: this.selectedAsset
       },
       bubbles: true,
       composed: true
@@ -1111,6 +1392,13 @@ export class ContentWizard extends LitElement {
     this.selectedType = '';
     this.description = '';
     this.loading = false;
+    this.selectedAsset = null;
+    this.showAssetBrowser = false;
+  }
+
+  // Public getter for selected asset
+  public getSelectedAsset(): ImageAsset | null {
+    return this.selectedAsset;
   }
 }
 

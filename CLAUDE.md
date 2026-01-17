@@ -83,6 +83,8 @@ client/src/
 │   ├── content-wizard.ts    # Guided wizard (20 component types)
 │   ├── brand-panel.ts       # Brand guidelines display
 │   ├── brand-score.ts       # Content alignment scoring
+│   ├── page-builder.ts      # Multi-page builder with drag-drop
+│   ├── aem-preview.ts       # AEM authoring chrome preview
 │   └── error-message.ts
 ├── data/
 │   └── brand-config.json    # Brand guidelines configuration
@@ -94,13 +96,15 @@ client/src/
 
 **Features**:
 - Adobe Spectrum design system integration
-- Two-pane layout (wizard/suggestions left, preview right)
+- Three input modes: Guided Wizard, Quick Mode, Page Builder
 - 20 component types across 7 categories
 - Brand guidelines panel with live status
 - Brand alignment scoring for generated content
+- Multi-page builder with drag-drop reordering
+- AEM authoring preview with Edit/Preview/Structure modes
+- Responsive device preview (Desktop/Tablet/Mobile)
 - Copy to clipboard (JSON and HTML formats)
 - Refinement input for iterating on suggestions
-- Quick prompt buttons for common use cases
 
 ### 6. Intuitive Content Wizard
 
@@ -156,11 +160,87 @@ private renderEditableField(field: string, value: string, tag: string) {
 
 ### 8. View Mode Toggle
 
-**Design**: Users can switch between two input modes:
+**Design**: Users can switch between three input modes:
 - **Guided Mode**: Step-by-step wizard for structured input
 - **Quick Mode**: Free-form text input for experienced users
+- **Page Builder Mode**: Multi-page layout builder with drag-drop
 
 Toggle buttons at the top of the left panel allow instant switching.
+
+### 13. Multi-Page Builder
+
+**Feature**: Build complete page layouts with multiple components using drag-drop.
+
+**Page Templates**:
+- Landing Page: navigation → hero → 3 teasers → cta → footer
+- Product Page: navigation → hero → product → tabs → quote → cta → footer
+- Blog Article: navigation → hero → teaser → accordion → social → footer
+- Custom Page: Start from scratch
+
+**Implementation** (`page-builder.ts`):
+```typescript
+const PAGE_TEMPLATES = [
+  { id: 'landing', name: 'Landing Page', icon: '🚀',
+    sections: ['navigation', 'hero', 'teaser', 'teaser', 'teaser', 'cta', 'footer'] },
+  // ...
+];
+
+// Drag and drop support
+private handleDragStart(e: DragEvent, index: number)
+private handleDrop(e: DragEvent, dropIndex: number)
+
+// Generate all content in sequence
+private async generateAllContent() {
+  for (section of sections) {
+    this.dispatchEvent(new CustomEvent('generate-section', {
+      detail: { sectionId, componentType, prompt, pageContext }
+    }));
+  }
+}
+```
+
+**Features**:
+- 4 pre-built page templates
+- 17 component types available
+- Drag-and-drop section reordering
+- Page description context for AI generation
+- Sequential content generation with progress indicator
+
+### 14. AEM Authoring Preview
+
+**Feature**: Realistic AEM authoring environment simulation.
+
+**View Modes**:
+- **Preview**: Clean page preview
+- **Edit**: Shows AEM component chrome with edit actions
+- **Structure**: JCR content tree visualization
+
+**Implementation** (`aem-preview.ts`):
+```typescript
+@customElement('aem-preview')
+export class AemPreview extends LitElement {
+  @property({ type: Array }) sections: PageSection[] = [];
+  @property({ type: String }) viewMode: 'preview' | 'edit' | 'structure' = 'preview';
+  @state() private deviceMode: 'desktop' | 'tablet' | 'mobile' = 'desktop';
+
+  // AEM toolbar with logo, view modes, device toggle
+  private renderToolbar()
+
+  // Component with edit chrome showing path and actions
+  private renderComponent(section: PageSection)
+
+  // JCR tree structure view
+  private renderStructureView()
+}
+```
+
+**Features**:
+- AEM-style dark toolbar with logo
+- Preview/Edit/Structure mode toggle
+- Desktop/Tablet/Mobile responsive preview
+- Component chrome with edit/configure/delete actions
+- JCR path display (/content/site/page/jcr:content/...)
+- Publish button simulation
 
 ### 4. Multiple Variations Generation
 
@@ -398,7 +478,7 @@ cd client && npm run storybook
 
 - [ ] Direct AEM integration via Granite APIs
 - [x] Brand voice training (implemented via brand-config.json)
-- [ ] Asset library integration
+- [x] Asset library integration (DAM browser with search, filter, and brand alignment)
 - [ ] Workflow integration
 - [ ] Multi-language support
 - [ ] Custom brand config upload
