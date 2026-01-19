@@ -1,7 +1,9 @@
 package com.example.aema2ui.controller;
 
+import com.example.aema2ui.model.PageRecommendation;
 import com.example.aema2ui.model.TaskRequest;
 import com.example.aema2ui.model.TaskResponse;
+import com.example.aema2ui.service.AgentRecommendationService;
 import com.example.aema2ui.service.ContentSuggestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class AgentController {
 
     private final ContentSuggestionService suggestionService;
+    private final AgentRecommendationService recommendationService;
 
     /**
      * Health check endpoint.
@@ -70,6 +73,24 @@ public class AgentController {
             .build();
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * AI-driven page layout recommendation.
+     * This is a key A2UI feature where the agent suggests components
+     * based on the user's description rather than requiring manual selection.
+     *
+     * Example: "landing page for summer sale" -> agent recommends hero, teasers, CTA, etc.
+     */
+    @PostMapping("/recommend")
+    public ResponseEntity<PageRecommendation> recommendLayout(@RequestBody Map<String, String> request) {
+        String userInput = request.getOrDefault("input", "");
+        if (userInput.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        PageRecommendation recommendation = recommendationService.recommendLayout(userInput);
+        return ResponseEntity.ok(recommendation);
     }
 
     /**

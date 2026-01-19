@@ -1,0 +1,113 @@
+{
+  "$schema": "https://ns.adobe.com/experience/aem/universal-editor/component-definitions.json",
+  "groups": [
+    {
+      "title": "Marketing Components",
+      "id": "marketing",
+      "components": [
+        {
+          "title": "Hero Banner",
+          "id": "hero-banner",
+          "description": "Full-width banner with headline, image, and CTA",
+          "model": "hero-banner",
+          "icon": "Image",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "hero"
+            }
+          }
+        },
+        {
+          "title": "Call to Action",
+          "id": "cta-banner",
+          "description": "Prominent call-to-action section",
+          "model": "cta-banner",
+          "icon": "CallCenter",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "cta"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Content Components",
+      "id": "content",
+      "components": [
+        {
+          "title": "Teaser",
+          "id": "teaser",
+          "description": "Content teaser with image and link",
+          "model": "teaser",
+          "icon": "TextEdit",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "teaser"
+            }
+          }
+        },
+        {
+          "title": "Quote/Testimonial",
+          "id": "quote",
+          "description": "Customer quote or testimonial",
+          "model": "quote",
+          "icon": "Quote",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "quote"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Commerce Components",
+      "id": "commerce",
+      "components": [
+        {
+          "title": "Product Card",
+          "id": "product-card",
+          "description": "Product display with image, price, and buy button",
+          "model": "product-card",
+          "icon": "ShoppingCart",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "product"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Navigation Components",
+      "id": "navigation",
+      "components": [
+        {
+          "title": "Navigation Menu",
+          "id": "navigation",
+          "description": "Site navigation header",
+          "model": "navigation",
+          "icon": "Rail",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "navigation"
+            }
+          }
+        },
+        {
+          "title": "Footer",
+          "id": "footer",
+          "description": "Site footer with links and copyright",
+          "model": "footer",
+          "icon": "ViewColumn",
+          "plugins": {
+            "aem-a2ui": {
+              "componentType": "footer"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

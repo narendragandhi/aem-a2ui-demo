@@ -1698,7 +1698,7 @@ export class AssistantPreview extends LitElement {
       title: content.title,
       subtitle: content.subtitle,
       description: content.description,
-      cta: content.cta
+      cta: content.ctaText || content.cta?.text
     });
 
     return html`

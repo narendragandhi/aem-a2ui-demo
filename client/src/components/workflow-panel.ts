@@ -418,7 +418,7 @@ export class WorkflowPanel extends LitElement {
     }
 
     // Check if review is approved before allowing workflow submission
-    const canSubmit = this.review?.status === 'approved' || this.review?.status === 'APPROVED';
+    const canSubmit = this.review?.status === 'approved';
 
     return html`
       <div class="panel">

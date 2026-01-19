@@ -36,6 +36,10 @@ dist/
 .cache/
 *.tsbuildinfo
 
+# TypeScript generated files
+*.d.ts
+*.d.ts.map
+
 # IDE
 .vscode/
 .idea/

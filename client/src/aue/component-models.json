@@ -1,0 +1,233 @@
+{
+  "$schema": "https://ns.adobe.com/experience/aem/universal-editor/component-models.json",
+  "models": [
+    {
+      "id": "hero-banner",
+      "label": "Hero Banner",
+      "fields": [
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Title",
+          "valueType": "string",
+          "required": true
+        },
+        {
+          "component": "text",
+          "name": "subtitle",
+          "label": "Subtitle",
+          "valueType": "string"
+        },
+        {
+          "component": "richtext",
+          "name": "description",
+          "label": "Description",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaText",
+          "label": "CTA Button Text",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaUrl",
+          "label": "CTA Button URL",
+          "valueType": "string"
+        },
+        {
+          "component": "reference",
+          "name": "imageUrl",
+          "label": "Hero Image",
+          "valueType": "string",
+          "multi": false
+        }
+      ]
+    },
+    {
+      "id": "teaser",
+      "label": "Teaser",
+      "fields": [
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Title",
+          "valueType": "string",
+          "required": true
+        },
+        {
+          "component": "richtext",
+          "name": "description",
+          "label": "Description",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaText",
+          "label": "Link Text",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaUrl",
+          "label": "Link URL",
+          "valueType": "string"
+        },
+        {
+          "component": "reference",
+          "name": "imageUrl",
+          "label": "Image",
+          "valueType": "string"
+        }
+      ]
+    },
+    {
+      "id": "product-card",
+      "label": "Product Card",
+      "fields": [
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Product Name",
+          "valueType": "string",
+          "required": true
+        },
+        {
+          "component": "richtext",
+          "name": "description",
+          "label": "Product Description",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "price",
+          "label": "Price",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaText",
+          "label": "Button Text",
+          "valueType": "string"
+        },
+        {
+          "component": "reference",
+          "name": "imageUrl",
+          "label": "Product Image",
+          "valueType": "string"
+        }
+      ]
+    },
+    {
+      "id": "cta-banner",
+      "label": "Call to Action",
+      "fields": [
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Headline",
+          "valueType": "string",
+          "required": true
+        },
+        {
+          "component": "text",
+          "name": "description",
+          "label": "Supporting Text",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaText",
+          "label": "Primary Button",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "ctaUrl",
+          "label": "Button URL",
+          "valueType": "string"
+        }
+      ]
+    },
+    {
+      "id": "quote",
+      "label": "Quote/Testimonial",
+      "fields": [
+        {
+          "component": "richtext",
+          "name": "quote",
+          "label": "Quote Text",
+          "valueType": "string",
+          "required": true
+        },
+        {
+          "component": "text",
+          "name": "author",
+          "label": "Author Name",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Author Title/Role",
+          "valueType": "string"
+        },
+        {
+          "component": "reference",
+          "name": "imageUrl",
+          "label": "Author Photo",
+          "valueType": "string"
+        }
+      ]
+    },
+    {
+      "id": "navigation",
+      "label": "Navigation Menu",
+      "fields": [
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Brand/Logo Text",
+          "valueType": "string"
+        },
+        {
+          "component": "reference",
+          "name": "imageUrl",
+          "label": "Logo Image",
+          "valueType": "string"
+        },
+        {
+          "component": "container",
+          "name": "items",
+          "label": "Menu Items",
+          "valueType": "array"
+        }
+      ]
+    },
+    {
+      "id": "footer",
+      "label": "Footer",
+      "fields": [
+        {
+          "component": "text",
+          "name": "title",
+          "label": "Company Name",
+          "valueType": "string"
+        },
+        {
+          "component": "text",
+          "name": "description",
+          "label": "Copyright Text",
+          "valueType": "string"
+        },
+        {
+          "component": "container",
+          "name": "items",
+          "label": "Footer Links",
+          "valueType": "array"
+        }
+      ]
+    }
+  ]
+}

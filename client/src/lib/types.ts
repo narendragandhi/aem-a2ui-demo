@@ -30,6 +30,8 @@ export interface SeoSuggestions {
   ogDescription?: string;
   schemaType?: string;
   readabilityScore?: number;
+  keywordDensity?: { keyword: string; density: number }[];
+  issues?: string[];
 }
 
 export interface ImageAsset {
@@ -208,4 +210,24 @@ export interface AemConfig {
   contentRoot: string;
   damRoot: string;
   connected: boolean;
+}
+
+// Agent Recommendation Types (A2UI feature)
+
+export interface SectionRecommendation {
+  componentType: string;
+  displayName: string;
+  icon: string;
+  reason: string;
+  suggestedPrompt: string;
+  position: number;
+  required: boolean;
+}
+
+export interface PageRecommendation {
+  pageType: string;
+  reasoning: string;
+  confidence: number;
+  sections: SectionRecommendation[];
+  alternatives: string[];
 }

@@ -12,5 +12,10 @@ module.exports = ({ config }) => {
 
   config.resolve.extensions.push('.ts');
 
+  // Map .js imports to .ts files (for ESM-style imports)
+  config.resolve.extensionAlias = {
+    '.js': ['.ts', '.js'],
+  };
+
   return config;
 };

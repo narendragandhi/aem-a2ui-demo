@@ -735,6 +735,23 @@ export class PageBuilder extends LitElement {
     this.notifySectionsChanged();
   }
 
+  /**
+   * Public method to set sections from AI recommendation.
+   * Called by the parent component after user accepts a recommendation.
+   */
+  public setSectionsFromRecommendation(recommendations: Array<{ componentType: string; prompt: string }>) {
+    this.selectedTemplate = 'ai-recommended';
+    this.pageDescription = 'AI-recommended page layout';
+    this.sections = recommendations.map((rec, index) => ({
+      id: `section-${Date.now()}-${index}`,
+      type: rec.componentType,
+      content: null,
+      status: 'empty' as const,
+    }));
+    this.showAddMenu = false;
+    this.notifySectionsChanged();
+  }
+
   private notifySectionsChanged() {
     this.dispatchEvent(new CustomEvent('sections-changed', {
       detail: { sections: [...this.sections] },

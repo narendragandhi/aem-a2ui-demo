@@ -18,8 +18,11 @@ import './components/review-comments.js';
 import './components/workflow-panel.js';
 import './components/dam-browser.js';
 import './components/aem-status.js';
+import './components/component-recommender.js';
+import './components/streaming-content.js';
 
-import { ContentSuggestion, ImageAsset, Review, DamAsset } from './lib/types.js';
+import { ContentSuggestion, ImageAsset, Review, DamAsset, PageRecommendation } from './lib/types.js';
+import { StreamingContent } from './components/streaming-content.js';
 import { HistoryService } from './services/history-service.js';
 import { ContentWizard } from './components/content-wizard.js';
 import { BrandPanel } from './components/brand-panel.js';
@@ -71,7 +74,7 @@ export class AemAssistant extends LitElement {
   @state() private refinementMode = false;
   @state() private history: ContentSuggestion[] = [];
   @state() private theme: 'light' | 'dark' = 'light';
-  @state() private viewMode: 'wizard' | 'quick' | 'pagebuilder' = 'wizard';
+  @state() private viewMode: 'wizard' | 'quick' | 'pagebuilder' | 'ai-recommend' = 'ai-recommend';
   @state() private pageSections: PageSection[] = [];
   @state() private currentSectionIndex = 0;
   @state() private selectedComponentType = 'hero';
@@ -80,6 +83,12 @@ export class AemAssistant extends LitElement {
   @state() private showCommentsPanel = false;
   @state() private showDamBrowser = false;
   @state() private selectedDamAsset: DamAsset | null = null;
+  @state() private loading = false;
+  @state() private error = '';
+  @state() private showStreamingModal = false;
+  @state() private streamingSectionId: string | null = null;
+  @state() private streamingComponentType = '';
+  @state() private streamingPrompt = '';
 
   private _generationTask = new Task(this, {
     task: async ([prompt], { signal }) => {
@@ -205,6 +214,77 @@ export class AemAssistant extends LitElement {
       justify-content: center;
       align-items: center;
       z-index: 10000;
+    }
+
+    /* Streaming Modal */
+    .streaming-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10001;
+    }
+
+    .streaming-modal {
+      background: var(--card-background, white);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      animation: modalSlideIn 0.3s ease;
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .streaming-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--spectrum-gray-100, #f5f5f5);
+      border-bottom: 1px solid var(--spectrum-gray-300);
+    }
+
+    .streaming-modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: var(--spectrum-gray-900);
+    }
+
+    .streaming-modal-close {
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--spectrum-gray-600);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .streaming-modal-close:hover {
+      background: var(--spectrum-gray-200);
+    }
+
+    .streaming-modal-body {
+      padding: 0;
+      max-height: calc(80vh - 60px);
+      overflow-y: auto;
     }
 
     .spinner {
@@ -534,6 +614,9 @@ export class AemAssistant extends LitElement {
           <!-- View Mode Toggle -->
           <div class="view-mode-toggle">
             <sp-action-group selects="single" @change=${this.handleModeChange}>
+              <sp-action-button ?selected=${this.viewMode === 'ai-recommend'} value="ai-recommend">
+                AI Recommend
+              </sp-action-button>
               <sp-action-button ?selected=${this.viewMode === 'wizard'} value="wizard">
                 Guided
               </sp-action-button>
@@ -546,7 +629,15 @@ export class AemAssistant extends LitElement {
             </sp-action-group>
           </div>
 
-          ${this.viewMode === 'wizard' ? html`
+          ${this.viewMode === 'ai-recommend' ? html`
+            <!-- AI Recommend Mode -->
+            <div class="wizard-container">
+              <component-recommender
+                .agentUrl=${this.agentUrl}
+                @recommendation-accepted=${this.handleRecommendationAccepted}
+              ></component-recommender>
+            </div>
+          ` : this.viewMode === 'wizard' ? html`
             <!-- Wizard Mode -->
             <div class="wizard-container">
               <content-wizard
@@ -658,6 +749,27 @@ export class AemAssistant extends LitElement {
         @comment-added=${this.handleCommentAdded}
       ></review-comments>
 
+      <!-- Streaming Content Modal -->
+      ${this.showStreamingModal ? html`
+        <div class="streaming-modal-overlay" @click=${this.closeStreamingModal}>
+          <div class="streaming-modal" @click=${(e: Event) => e.stopPropagation()}>
+            <div class="streaming-modal-header">
+              <h3>Generating ${this.streamingComponentType} content...</h3>
+              <button class="streaming-modal-close" @click=${this.closeStreamingModal}>x</button>
+            </div>
+            <div class="streaming-modal-body">
+              <streaming-content
+                .agentUrl=${this.agentUrl}
+                .componentType=${this.streamingComponentType}
+                .prompt=${this.streamingPrompt}
+                @content-ready=${this.handleStreamingContentReady}
+                @content-accepted=${this.handleStreamingContentAccepted}
+              ></streaming-content>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
       ${this.showCopiedToast ? html`
         <div class="toast">Copied to clipboard!</div>
       ` : ''}
@@ -723,7 +835,7 @@ export class AemAssistant extends LitElement {
     const target = e.target as HTMLElement;
     const selected = target.querySelector('[selected]');
     if (selected) {
-      this.viewMode = selected.getAttribute('value') as 'wizard' | 'quick' | 'pagebuilder';
+      this.viewMode = selected.getAttribute('value') as 'wizard' | 'quick' | 'pagebuilder' | 'ai-recommend';
       // Reset page sections when switching to pagebuilder
       if (this.viewMode === 'pagebuilder') {
         this.pageSections = [];
@@ -734,38 +846,71 @@ export class AemAssistant extends LitElement {
   private async handleGenerateSection(e: CustomEvent) {
     const { sectionId, componentType, prompt } = e.detail;
 
-    try {
-      const response = await fetch(`${this.agentUrl}/tasks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          message: {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        }),
-      });
+    // Use streaming for section generation
+    this.streamingSectionId = sectionId;
+    this.streamingComponentType = componentType;
+    this.streamingPrompt = prompt;
+    this.showStreamingModal = true;
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const suggestions = this.parseAgentResponse(data);
-
-      if (suggestions.length > 0) {
-        // Update the page builder component - it will notify us via sections-changed
-        const pageBuilder = this.shadowRoot?.querySelector('page-builder') as PageBuilder;
-        if (pageBuilder) {
-          pageBuilder.updateSectionContent(sectionId, suggestions[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Section generation error:', error);
+    // Start streaming after modal is shown
+    await this.updateComplete;
+    const streamingComponent = this.shadowRoot?.querySelector('streaming-content') as StreamingContent;
+    if (streamingComponent) {
+      streamingComponent.startStreaming(prompt, componentType);
     }
+  }
+
+  /**
+   * Close the streaming modal
+   */
+  private closeStreamingModal() {
+    const streamingComponent = this.shadowRoot?.querySelector('streaming-content') as StreamingContent;
+    if (streamingComponent) {
+      streamingComponent.cancelStream();
+    }
+    this.showStreamingModal = false;
+    this.streamingSectionId = null;
+    this.streamingComponentType = '';
+    this.streamingPrompt = '';
+  }
+
+  /**
+   * Handle streaming content ready (generation complete)
+   */
+  private handleStreamingContentReady(e: CustomEvent) {
+    console.log('Streaming content ready:', e.detail.content);
+    // Content is ready but user hasn't accepted yet
+  }
+
+  /**
+   * Handle streaming content accepted by user
+   */
+  private handleStreamingContentAccepted(e: CustomEvent) {
+    const streamedContent = e.detail.content as Partial<ContentSuggestion>;
+
+    // Create a full ContentSuggestion from the streamed content
+    const content: ContentSuggestion = {
+      id: `streamed-${Date.now()}`,
+      title: streamedContent.title || 'Untitled',
+      subtitle: streamedContent.subtitle,
+      description: streamedContent.description || '',
+      ctaText: streamedContent.ctaText || 'Learn More',
+      ctaUrl: streamedContent.ctaUrl || '#',
+      imageUrl: streamedContent.imageUrl || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800',
+      componentType: this.streamingComponentType,
+      price: streamedContent.price,
+    };
+
+    // Update the page builder section with the accepted content
+    if (this.streamingSectionId) {
+      const pageBuilder = this.shadowRoot?.querySelector('page-builder') as PageBuilder;
+      if (pageBuilder) {
+        pageBuilder.updateSectionContent(this.streamingSectionId, content);
+      }
+    }
+
+    // Close the modal
+    this.closeStreamingModal();
   }
 
   private handleSectionsChanged(e: CustomEvent) {
@@ -803,6 +948,46 @@ export class AemAssistant extends LitElement {
     if (this.suggestions.length > 0) {
       this.viewMode = 'quick';
     }
+  }
+
+  /**
+   * Handle AI recommendation acceptance.
+   * Converts recommended sections to page builder format and switches to page builder mode.
+   */
+  private handleRecommendationAccepted(e: CustomEvent) {
+    const { recommendation, userInput } = e.detail as {
+      recommendation: PageRecommendation;
+      userInput: string;
+    };
+
+    console.log('Recommendation accepted:', recommendation);
+
+    // Convert recommendation sections to page builder format
+    this.pageSections = recommendation.sections.map((section, index) => ({
+      id: `section-${index}-${Date.now()}`,
+      type: section.componentType,
+      content: null,
+      status: 'empty' as const,
+    }));
+
+    // Store the user input as context for generation
+    this.prompt = userInput;
+
+    // Switch to page builder mode to show the recommended layout
+    this.viewMode = 'pagebuilder';
+
+    // Update the page builder component with the sections
+    setTimeout(() => {
+      const pageBuilder = this.shadowRoot?.querySelector('page-builder') as PageBuilder;
+      if (pageBuilder) {
+        pageBuilder.setSectionsFromRecommendation(
+          recommendation.sections.map(s => ({
+            componentType: s.componentType,
+            prompt: s.suggestedPrompt
+          }))
+        );
+      }
+    }, 100);
   }
 
   private async generateContent() {

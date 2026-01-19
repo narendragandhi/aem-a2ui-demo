@@ -1,6 +1,14 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ContentSuggestion } from '../lib/types.js';
+import {
+  initUniversalEditor,
+  getEditableAttributes,
+  getFieldAttributes,
+  getContainerAttributes,
+  isUEEnabled,
+  type UEConfig,
+} from '../aue/index.js';
 
 interface PageSection {
   id: string;
@@ -13,8 +21,43 @@ interface PageSection {
 export class AemPreview extends LitElement {
   @property({ type: Array }) sections: PageSection[] = [];
   @property({ type: String }) viewMode: 'preview' | 'edit' | 'structure' = 'preview';
+  @property({ type: Object }) ueConfig: Partial<UEConfig> = {};
   @state() private selectedComponent: string | null = null;
   @state() private deviceMode: 'desktop' | 'tablet' | 'mobile' = 'desktop';
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Initialize Universal Editor if config is provided
+    if (this.ueConfig.enabled) {
+      initUniversalEditor(this.ueConfig);
+    }
+  }
+
+  /**
+   * Get Universal Editor attributes for a content section
+   */
+  private getUEAttributes(section: PageSection): string {
+    if (!isUEEnabled() || !section.content) {
+      return '';
+    }
+    const attrs = getEditableAttributes(section.content, section.type);
+    return Object.entries(attrs)
+      .map(([key, value]) => `${key}="${value}"`)
+      .join(' ');
+  }
+
+  /**
+   * Get Universal Editor attributes for an editable field
+   */
+  private getUEFieldAttrs(fieldName: string): string {
+    if (!isUEEnabled()) {
+      return '';
+    }
+    const attrs = getFieldAttributes(fieldName);
+    return Object.entries(attrs)
+      .map(([key, value]) => `${key}="${value}"`)
+      .join(' ');
+  }
 
   static styles = css`
     :host {

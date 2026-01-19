@@ -268,9 +268,10 @@ export class ReviewPanel extends LitElement {
       });
 
       if (response.ok) {
-        this.review = await response.json();
+        const review = await response.json() as Review;
+        this.review = review;
         this.showStartForm = false;
-        this.dispatchReviewEvent('review-started', this.review);
+        this.dispatchReviewEvent('review-started', review);
       }
     } catch (error) {
       console.error('Failed to start review:', error);
@@ -291,8 +292,9 @@ export class ReviewPanel extends LitElement {
       });
 
       if (response.ok) {
-        this.review = await response.json();
-        this.dispatchReviewEvent('review-approved', this.review);
+        const review = await response.json() as Review;
+        this.review = review;
+        this.dispatchReviewEvent('review-approved', review);
       }
     } catch (error) {
       console.error('Failed to approve review:', error);
@@ -316,8 +318,9 @@ export class ReviewPanel extends LitElement {
       });
 
       if (response.ok) {
-        this.review = await response.json();
-        this.dispatchReviewEvent('review-rejected', this.review);
+        const review = await response.json() as Review;
+        this.review = review;
+        this.dispatchReviewEvent('review-rejected', review);
       }
     } catch (error) {
       console.error('Failed to reject review:', error);
@@ -341,8 +344,9 @@ export class ReviewPanel extends LitElement {
       });
 
       if (response.ok) {
-        this.review = await response.json();
-        this.dispatchReviewEvent('changes-requested', this.review);
+        const review = await response.json() as Review;
+        this.review = review;
+        this.dispatchReviewEvent('changes-requested', review);
       }
     } catch (error) {
       console.error('Failed to request changes:', error);
