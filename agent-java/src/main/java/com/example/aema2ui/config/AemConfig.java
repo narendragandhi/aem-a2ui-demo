@@ -105,9 +105,10 @@ public class AemConfig {
                        "with a dedicated service user account.");
         }
 
-        // Warn about HTTP in production (if URL doesn't start with localhost)
+        // Warn about HTTP in production (if URL doesn't start with localhost or docker internal)
         if (authorUrl != null && authorUrl.startsWith("http://") &&
-            !authorUrl.contains("localhost") && !authorUrl.contains("127.0.0.1")) {
+            !authorUrl.contains("localhost") && !authorUrl.contains("127.0.0.1") &&
+            !authorUrl.contains("host.docker.internal")) {
             logger.warn("⚠️  AEM Author URL uses HTTP ({}). " +
                        "Consider using HTTPS for production environments.", authorUrl);
         }
@@ -125,11 +126,13 @@ public class AemConfig {
     /**
      * Check if AEM is configured for a non-localhost environment.
      * Useful for determining if extra security precautions should be taken.
+     * Recognizes localhost, 127.0.0.1, and host.docker.internal as local.
      */
     public boolean isRemoteAem() {
         return authorUrl != null &&
                !authorUrl.contains("localhost") &&
-               !authorUrl.contains("127.0.0.1");
+               !authorUrl.contains("127.0.0.1") &&
+               !authorUrl.contains("host.docker.internal");
     }
 
     /**
