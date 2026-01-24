@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.springframework.test.context.ActiveProfiles("test")
 class AgentControllerTest {
 
     @Autowired
@@ -76,8 +77,11 @@ class AgentControllerTest {
                         .content(requestBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("completed"))
+                // Product template returns brand-aligned title and includes price field
                 .andExpect(jsonPath("$.messages[2].dataModelUpdate.contents[?(@.key=='title')].valueString",
-                        hasItem(containsString("Product"))));
+                        hasItem("Unlock Enterprise Power")))
+                .andExpect(jsonPath("$.messages[2].dataModelUpdate.contents[?(@.key=='price')].valueString",
+                        hasItem("Contact Sales")));
     }
 
     @Test
