@@ -30,6 +30,8 @@ services:
       - "10003:10003"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ./agent-java/.env
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-default}
       - JAVA_OPTS=${JAVA_OPTS:--Xmx512m}
