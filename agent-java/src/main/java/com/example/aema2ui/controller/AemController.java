@@ -18,7 +18,6 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/aem")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class AemController {
 

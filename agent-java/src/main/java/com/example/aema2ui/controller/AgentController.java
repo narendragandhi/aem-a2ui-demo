@@ -19,7 +19,6 @@ import java.util.UUID;
  */
 @RestController
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class AgentController {
 
     private final ContentSuggestionService suggestionService;

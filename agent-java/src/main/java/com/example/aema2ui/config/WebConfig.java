@@ -76,29 +76,23 @@ public class WebConfig {
 
                 boolean hasWildcard = Arrays.asList(origins).contains("*");
 
-                var mapping = registry.addMapping("/**")
-                    .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                    .allowedHeaders(
-                        "Authorization",
-                        "Content-Type",
-                        "Accept",
-                        "X-Request-Id",
-                        "X-API-Key"
-                    )
-                    .exposedHeaders(
-                        "X-Request-Id",
-                        "X-RateLimit-Limit",
-                        "X-RateLimit-Remaining"
-                    )
-                    .maxAge(maxAge);
-
-                // Use allowedOriginPatterns for wildcard to work with credentials
                 if (hasWildcard) {
-                    mapping.allowedOriginPatterns("*")
-                           .allowCredentials(allowCredentials);
+                    // Use allowedOriginPatterns for wildcard to work with credentials
+                    registry.addMapping("/**")
+                        .allowedOriginPatterns("*")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .exposedHeaders("X-Request-Id", "X-RateLimit-Limit", "X-RateLimit-Remaining")
+                        .allowCredentials(allowCredentials)
+                        .maxAge(maxAge);
                 } else {
-                    mapping.allowedOrigins(origins)
-                           .allowCredentials(allowCredentials);
+                    registry.addMapping("/**")
+                        .allowedOrigins(origins)
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*")
+                        .exposedHeaders("X-Request-Id", "X-RateLimit-Limit", "X-RateLimit-Remaining")
+                        .allowCredentials(allowCredentials)
+                        .maxAge(maxAge);
                 }
             }
         };

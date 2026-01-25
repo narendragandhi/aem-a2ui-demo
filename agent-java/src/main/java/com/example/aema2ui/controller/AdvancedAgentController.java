@@ -17,7 +17,6 @@ import java.util.UUID;
  */
 @RestController
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @RequestMapping("/advanced")
 public class AdvancedAgentController {
 

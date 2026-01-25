@@ -13,7 +13,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/workflows")
-@CrossOrigin(origins = "*")
 public class WorkflowController {
 
     private final WorkflowService workflowService;

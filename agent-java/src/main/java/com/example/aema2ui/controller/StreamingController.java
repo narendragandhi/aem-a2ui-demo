@@ -23,7 +23,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/stream")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class StreamingController {
 
     private final StreamingContentService streamingService;

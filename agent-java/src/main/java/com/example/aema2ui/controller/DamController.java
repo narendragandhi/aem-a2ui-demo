@@ -19,7 +19,6 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/dam")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class DamController {
 
