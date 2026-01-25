@@ -203,6 +203,26 @@ public class LlmService {
         String response = generate(jsonPrompt);
 
         // Clean up response - remove markdown code blocks if present
+        response = cleanJsonResponse(response);
+
+        try {
+            return objectMapper.readValue(response, targetClass);
+        } catch (Exception e) {
+            // Try to repair common JSON issues
+            String repaired = repairJson(response);
+            try {
+                return objectMapper.readValue(repaired, targetClass);
+            } catch (Exception e2) {
+                log.error("Failed to parse LLM response as {}: {}", targetClass.getSimpleName(), response);
+                throw new RuntimeException("Failed to parse LLM response", e);
+            }
+        }
+    }
+
+    /**
+     * Clean markdown and whitespace from JSON response.
+     */
+    private String cleanJsonResponse(String response) {
         response = response.trim();
         if (response.startsWith("```json")) {
             response = response.substring(7);
@@ -212,13 +232,36 @@ public class LlmService {
         if (response.endsWith("```")) {
             response = response.substring(0, response.length() - 3);
         }
-        response = response.trim();
+        return response.trim();
+    }
 
-        try {
-            return objectMapper.readValue(response, targetClass);
-        } catch (Exception e) {
-            log.error("Failed to parse LLM response as {}: {}", targetClass.getSimpleName(), response);
-            throw new RuntimeException("Failed to parse LLM response", e);
+    /**
+     * Attempt to repair common JSON formatting issues from LLMs.
+     */
+    private String repairJson(String json) {
+        // Fix missing commas between properties (common LLM issue)
+        // Pattern: }" or ]" followed by newline and "property":
+        json = json.replaceAll("\"\\s*\\n\\s*\"", "\",\n\"");
+
+        // Fix trailing commas before closing brackets
+        json = json.replaceAll(",\\s*}", "}");
+        json = json.replaceAll(",\\s*]", "]");
+
+        // Fix missing closing brackets
+        long openBraces = json.chars().filter(c -> c == '{').count();
+        long closeBraces = json.chars().filter(c -> c == '}').count();
+        while (closeBraces < openBraces) {
+            json = json + "}";
+            closeBraces++;
         }
+
+        long openBrackets = json.chars().filter(c -> c == '[').count();
+        long closeBrackets = json.chars().filter(c -> c == ']').count();
+        while (closeBrackets < openBrackets) {
+            json = json + "]";
+            closeBrackets++;
+        }
+
+        return json;
     }
 }
