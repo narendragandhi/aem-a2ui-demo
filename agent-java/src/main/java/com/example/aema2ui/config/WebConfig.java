@@ -74,8 +74,9 @@ public class WebConfig {
                     .filter(s -> !s.isEmpty())
                     .toArray(String[]::new);
 
-                registry.addMapping("/**")
-                    .allowedOrigins(origins)
+                boolean hasWildcard = Arrays.asList(origins).contains("*");
+
+                var mapping = registry.addMapping("/**")
                     .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                     .allowedHeaders(
                         "Authorization",
@@ -89,8 +90,16 @@ public class WebConfig {
                         "X-RateLimit-Limit",
                         "X-RateLimit-Remaining"
                     )
-                    .allowCredentials(allowCredentials && !Arrays.asList(origins).contains("*"))
                     .maxAge(maxAge);
+
+                // Use allowedOriginPatterns for wildcard to work with credentials
+                if (hasWildcard) {
+                    mapping.allowedOriginPatterns("*")
+                           .allowCredentials(allowCredentials);
+                } else {
+                    mapping.allowedOrigins(origins)
+                           .allowCredentials(allowCredentials);
+                }
             }
         };
     }
