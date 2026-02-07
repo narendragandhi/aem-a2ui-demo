@@ -69,7 +69,29 @@ aem-a2ui-demo/
 
 ## Getting Started
 
-### Prerequisites
+### Quick Start (5 minutes)
+
+Follow the **[QUICKSTART.md](QUICKSTART.md)** for a hands-on tutorial.
+
+### Understand the Concepts
+
+See **[CONCEPTS.md](CONCEPTS.md)** for AEM-to-A2UI concept mapping.
+
+### Learn Why A2UI Matters
+
+See **[docs/VALUE_PROPOSITION.md](docs/VALUE_PROPOSITION.md)** for the business case.
+
+### Read the Full Story
+
+See **[docs/A2UI_STORY.md](docs/A2UI_STORY.md)** for a narrative guide with diagrams.
+
+### Plan Future Work
+
+See **[PLAN.md](PLAN.md)** for upcoming features.
+
+---
+
+## Prerequisites
 
 - Java 21+ and Maven (for the Java agent)
 - Node.js 18+ (for the client)

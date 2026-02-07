@@ -162,6 +162,147 @@ Think of it as the missing link between **conversational AI** and **functional a
 | **Actions** | "I'll copy that now" | "[Apply]" button in the UI |
 | **Rich content** | Text descriptions only | Live preview, thumbnails, scores |
 | **Iterating** | "Can you change the title?" | Edit directly, regenerate |
+| **AEM Workflow** | Manual submission | One-click submit |
+
+---
+
+## Chapter 3.5: Diagram Legend
+
+All diagrams in this document use the following notation:
+
+```
+┌─────────────┐    Box: System, component, or data structure
+├─────────────┤    Header row in a structured data box
+├─────────────┤    Divider line
+│  Text       │    Plain text: Data, content, or label
+│  ──────     │    Dashed line: Optional or conditional path
+│→ Arrow      │    Solid arrow with arrowhead: Data flow (request → response)
+│───→ Arrow   │    Dashed arrow with arrowhead: Control flow or conditional
+│← Arrow      │    Reverse arrow: Response or return data
+└─────────────┘    Bottom border of box
+
+┌─────────────────────────────────────────────┐
+│  Multi-line text spanning the full width    │
+├─────────────────────────────────────────────┤
+│  Header row                                 │
+├─────────────────────────────────────────────┤
+│  • Bullet point                             │
+│  • Another point                           │
+└─────────────────────────────────────────────┘
+```
+
+### Example Flow
+
+```
+   ┌──────────┐    Request     ┌──────────┐
+   │  CLIENT  │ ──────────────► │  AGENT   │  ── Solid arrow: Data flow
+   └──────────┘                 └──────────┘
+                                    │
+                                    │  Optional path
+                                    ▼  ── Dashed arrow: Control flow
+                           ┌─────────────────────┐
+                           │  GENERATE CONTENT    │
+                           └─────────────────────┘
+```
+
+---
+
+## Chapter 3.6: Your First A2UI Request (5-Minute Tutorial)
+
+Ready to try it yourself? Here's a step-by-step walkthrough.
+
+### Step 1: Start the Backend
+
+```bash
+cd agent-java
+mvn spring-boot:run
+```
+
+The Java agent starts on `http://localhost:8080`.
+
+### Step 2: Start the Frontend
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+The client starts on `http://localhost:5173`.
+
+### Step 3: Open the Assistant
+
+Navigate to `http://localhost:5173`. You'll see the A2UI sidebar with the assistant panel.
+
+### Step 4: Make Your First Request
+
+In the text input box, type:
+
+> **"Create a hero banner for our summer sale"**
+
+Press Enter.
+
+### Step 5: Watch What Happens
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         YOUR FIRST REQUEST                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │  Summer Savings Event                                                   │
+   │  ___________________________________________________________________   │
+   │  Don't Miss Out! Up to 50% Off All Products                           │
+   │  Shop the Season's Best Deals Before They're Gone                     │
+   │  ___________________________________________________________________   │
+   │                            [ SHOP NOW ]                                │
+   │                                                                          │
+   │  ┌─────────────────────────────────────────────────────────────────┐  │
+   │  │  Brand Score: 92%                                                │  │
+   │  │  • Action-oriented headline (6 words)          ✓                 │  │
+   │  │  • Value pillar messaging (Speed, Deals)    ✓                 │  │
+   │  │  • Professional tone                       ✓                 │  │
+   │  │  • Consider: Add urgency ("Today Only")    ⚠                 │  │
+   │  └─────────────────────────────────────────────────────────────────┘  │
+   │                                                                          │
+   │  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────┐ │
+   │  │ [Apply]             │  │ [Regenerate]        │  │ [Edit]          │ │
+   │  └─────────────────────┘  └─────────────────────┘  └─────────────────┘ │
+   └─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Step 6: Apply to AEM
+
+Click **[Apply]** to send the content to AEM.
+
+What happened:
+1. Client sent the content to the agent via POST
+2. Agent stored content in AEM (simulated)
+3. Success confirmation appeared
+
+### Step 7: Submit for Review
+
+Click **[Submit for Review]** to initiate an AEM workflow.
+
+What happened:
+1. Workflow submission request sent to agent
+2. AEM workflow initiated (simulated)
+3. Status updated to "In Progress"
+
+---
+
+## Chapter 3.7: Try These Requests
+
+Once you're comfortable, try these requests to explore the system:
+
+| Request | What You Get |
+|---------|--------------|
+| `"Create a hero banner"` | Basic hero with title, subtitle, CTA |
+| `"Product card for premium widget"` | Product card with image, price, description |
+| `"Teaser for summer sale"` | Teaser component with countdown |
+| `"Footer with social links"` | Footer with icon placeholders |
+| `"Create a carousel for product showcase"` | Multi-image slider |
+| `"CTA banner for newsletter signup"` | Focused CTA component |
 
 ---
 
@@ -1305,6 +1446,16 @@ This project demonstrates A2UI with:
 - ✅ **SSE Streaming** for real-time updates
 - ✅ **Adobe Spectrum** design system
 
+### Recommended Reading Order
+
+| Document | Purpose | Time |
+|----------|---------|------|
+| **[QUICKSTART.md](../QUICKSTART.md)** | 5-minute hands-on tutorial | 5 min |
+| **[CONCEPTS.md](../CONCEPTS.md)** | AEM-to-A2UI concept mapping | 10 min |
+| **This document** | Full narrative with diagrams | 30 min |
+| **[PLAN.md](../PLAN.md)** | Future features & roadmap | 5 min |
+| **[CLAUDE.md](../CLAUDE.md)** | Technical decisions | Reference |
+
 ### Quick Start
 
 ```bash
@@ -1327,6 +1478,118 @@ ollama run llama3.2
 cd agent-java
 AI_ENABLED=true LLM_PROVIDER=ollama mvn spring-boot:run
 ```
+
+---
+
+## Frequently Asked Questions
+
+### General Questions
+
+**Q: Does A2UI replace AEM components?**
+
+A: No. A2UI generates content *for* AEM components, not instead of them. The agent creates text, images, and metadata that populates your existing AEM component dialogs. Think of it as a smarter authoring interface layered on top of your existing component architecture.
+
+**Q: How is this different from AEM's built-in AI features?**
+
+A: A2UI provides a conversational interface for content creation, which AEM doesn't natively support. It generates complete component configurations (title, subtitle, CTA, image) in one request, rather than requiring authors to fill out dialogs field by field.
+
+**Q: Can I use this with AEM as a Cloud Service?**
+
+A: Yes. The Java agent runs externally and communicates with AEM via REST APIs. You'll need to configure the agent to point to your AEM Cloud author instance.
+
+---
+
+### Technical Questions
+
+**Q: Where does the content get stored?**
+
+A: In this demo, content is stored to a simulated endpoint. In a production deployment, the agent would POST content to AEM's REST API (`/api/assets` or content fragment endpoints).
+
+**Q: How does DAM integration work?**
+
+A: The agent queries AEM's Sling JSON export (`/content/dam/{path}.1.json`) and filters assets based on brand visual guidelines defined in `brand-config.json`.
+
+**Q: What happens if the AI is unavailable?**
+
+A: The agent has a template fallback system. When AI is disabled or unavailable, it uses predefined templates to generate content. This ensures the demo works even without an LLM.
+
+**Q: Which LLM providers are supported?**
+
+A: The architecture supports OpenAI, Anthropic, and Ollama (local). You can also extend the `LlmService` interface to add other providers.
+
+**Q: Is my data sent to external servers?**
+
+A: That depends on your configuration:
+- **OpenAI/Anthropic**: Data is sent to their cloud services
+- **Ollama (local)**: All processing happens on your machine, no data leaves the network
+
+---
+
+### AEM Developer Questions
+
+**Q: How do I add a new component type?**
+
+A: Three steps:
+1. Add the component definition in `agent-java/src/main/resources/templates/`
+2. Add rendering logic in `client/src/components/`
+3. Update `client/src/lib/types.ts` with the new component type
+
+**Q: Can I customize the brand guidelines?**
+
+A: Yes. Edit `client/src/data/brand-config.json` or the equivalent in `agent-java/src/main/resources/`. The agent loads these guidelines and injects them into every LLM prompt.
+
+**Q: How do I integrate with existing AEM workflows?**
+
+A: The agent provides REST endpoints for workflow submission. Configure your workflow model ID and the agent will POST to AEM's workflow REST API.
+
+**Q: What's the difference between this and a Sling Model?**
+
+A: A Sling Model is a server-side Java object. An A2UI message is a JSON structure transmitted over HTTP. The client renders the JSON dynamically, enabling real-time streaming and interactive updates that Sling Models can't provide.
+
+---
+
+### Security & Enterprise Questions
+
+**Q: How do I secure the agent API?**
+
+A: In production, you should:
+- Add authentication (API keys, OAuth)
+- Enable CORS only for your AEM domain
+- Add rate limiting
+- Use HTTPS
+
+**Q: Can this be deployed as an AEM clientlib?**
+
+A: Currently, the client is a standalone web app. For production, you would wrap it as an AEM clientlib or deploy as a separate microservice that the AEM authoring UI embeds via iframe or custom UI extension.
+
+**Q: Does this work with AEM translation workflows?**
+
+A: Yes. The content generated follows AEM's content structure patterns. You can export the generated content to translation management systems integrated with AEM.
+
+---
+
+### Troubleshooting
+
+**Q: The agent returns a 500 error**
+
+A: Check:
+- AEM is running on the configured host/port
+- CORS is configured correctly on AEM
+- The brand-config.json is valid JSON
+
+**Q: No brand score appears**
+
+A: Ensure `brand-config.json` exists and contains the required `guidelines` section. Brand scoring requires this configuration.
+
+**Q: AI generation is slow**
+
+A: With template mode (no AI), responses are instant. With AI:
+- Ollama on local machine: 2-5 seconds
+- Cloud APIs: Depends on network and API latency
+
+**Q: SSE streaming doesn't work**
+
+A: Check that your browser supports Server-Sent Events (most modern browsers do). Also verify the agent is configured correctly for SSE.
 
 ---
 
