@@ -6,6 +6,7 @@ import com.example.aema2ui.model.TaskResponse;
 import com.example.aema2ui.service.AgentRecommendationService;
 import com.example.aema2ui.service.ContentSuggestionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +24,10 @@ public class AgentController {
 
     private final ContentSuggestionService suggestionService;
     private final AgentRecommendationService recommendationService;
+
+    // PERFORMANCE: Reduce default variations to 1 for faster response
+    @Value("${aem.agent.suggestions.count:1}")
+    private int suggestionsCount;
 
     /**
      * Health check endpoint.
@@ -61,8 +66,8 @@ public class AgentController {
         // Extract user text from request
         String userText = extractUserText(request);
 
-        // Generate multiple variations for the client
-        var suggestionsResult = suggestionService.generateMultipleSuggestions(userText, 3);
+        // Generate suggestions (default 1 for fast response, configurable via aem.agent.suggestions.count)
+        var suggestionsResult = suggestionService.generateMultipleSuggestions(userText, suggestionsCount);
 
         TaskResponse response = TaskResponse.builder()
             .id(UUID.randomUUID().toString())

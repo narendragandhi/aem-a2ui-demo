@@ -49,33 +49,11 @@ public class AgentRecommendationService {
         Map.entry("social", new ComponentInfo("Social Share", "🔗", "Social media links"))
     );
 
-    // LLM prompt for intelligent recommendations
+    // Condensed LLM prompt for layout recommendations
     private static final String RECOMMEND_PROMPT = """
-        You are an expert web page designer. Analyze the user's request and recommend an optimal page layout.
-
-        User request: %s
-
-        Based on this request, determine:
-        1. The page type (landing, product, blog, campaign, etc.)
-        2. The optimal sequence of components
-        3. Why each component is needed
-
-        Available components: hero, teaser, product, cta, quote, navigation, footer, accordion, tabs, carousel, video, gallery, pricing, form, social
-
-        Respond with JSON only:
-        {
-          "pageType": "landing|product|blog|campaign|general",
-          "reasoning": "Brief explanation of why this layout works",
-          "confidence": 85,
-          "sections": [
-            {
-              "componentType": "hero",
-              "reason": "Why this component here",
-              "suggestedPrompt": "Specific content prompt for this section"
-            }
-          ],
-          "alternatives": ["Alternative layout 1", "Alternative layout 2"]
-        }
+        Recommend page layout for: %s
+        Components: hero,teaser,product,cta,quote,navigation,footer,accordion,tabs,carousel,video,gallery,pricing,form,social
+        JSON: {"pageType":"landing|product|blog|general","reasoning":"why","confidence":85,"sections":[{"componentType":"hero","reason":"why","suggestedPrompt":"prompt"}],"alternatives":["alt1"]}
         """;
 
     /**

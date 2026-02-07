@@ -51,90 +51,131 @@ public class StreamingContentService {
 
     /**
      * Stream content generation with real-time updates.
-     * Uses simulated streaming by chunking the generated content.
+     * @param useAi If false, uses templates for instant response. If true, uses LLM (slower).
      */
-    public void streamContentGeneration(String userInput, String componentType, SseEmitter emitter) {
+    public void streamContentGeneration(String userInput, String componentType, SseEmitter emitter, boolean useAi) {
         String runId = UUID.randomUUID().toString();
+
+        // Track emitter state to avoid writing after completion
+        final java.util.concurrent.atomic.AtomicBoolean emitterCompleted = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+        // Set up completion callbacks
+        emitter.onCompletion(() -> {
+            emitterCompleted.set(true);
+            log.debug("SSE completed for runId: {}", runId);
+        });
+        emitter.onTimeout(() -> {
+            emitterCompleted.set(true);
+            log.warn("SSE timeout for runId: {}", runId);
+        });
+        emitter.onError(e -> {
+            emitterCompleted.set(true);
+            if (!isClientDisconnection(e)) {
+                log.error("SSE error for runId: {} - {}", runId, e.getMessage());
+            }
+        });
 
         executor.execute(() -> {
             try {
                 // 1. Emit RUN_STARTED
+                if (emitterCompleted.get()) return;
                 emitEvent(emitter, RUN_STARTED, Map.of(
                     "runId", runId,
                     "threadId", Thread.currentThread().getName(),
                     "input", userInput
                 ));
 
-                // 2. Parse user intent
-                UserInput parsed = contentAgent.parseUserIntent(userInput);
-                if (componentType != null && !componentType.isEmpty()) {
-                    parsed = UserInput.builder()
-                        .rawText(parsed.getRawText())
-                        .detectedComponentType(componentType)
-                        .targetAudience(parsed.getTargetAudience())
-                        .brandStyle(parsed.getBrandStyle())
-                        .toneOfVoice(parsed.getToneOfVoice())
-                        .build();
+                // 2. Generate content
+                // When useAi=false, skip LLM entirely for instant response
+                ContentSuggestion content;
+                if (useAi) {
+                    // Full LLM path (slower but smarter)
+                    UserInput parsed = contentAgent.parseUserIntent(userInput);
+                    if (componentType != null && !componentType.isEmpty()) {
+                        parsed = UserInput.builder()
+                            .rawText(parsed.getRawText())
+                            .detectedComponentType(componentType)
+                            .targetAudience(parsed.getTargetAudience())
+                            .brandStyle(parsed.getBrandStyle())
+                            .toneOfVoice(parsed.getToneOfVoice())
+                            .build();
+                    }
+                    content = contentAgent.generateContent(parsed);
+                } else {
+                    // Template path (instant)
+                    content = contentAgent.generateTemplateContent(userInput, componentType);
                 }
 
-                // 3. Generate content
-                ContentSuggestion content = contentAgent.generateContent(parsed);
+                // 4. Stream each field progressively (check emitter state before each)
+                if (!emitterCompleted.get()) streamField(emitter, runId, "title", content.getTitle(), emitterCompleted);
+                if (!emitterCompleted.get()) streamField(emitter, runId, "subtitle", content.getSubtitle(), emitterCompleted);
+                if (!emitterCompleted.get()) streamField(emitter, runId, "description", content.getDescription(), emitterCompleted);
 
-                // 4. Stream each field progressively
-                streamField(emitter, runId, "title", content.getTitle());
-                streamField(emitter, runId, "subtitle", content.getSubtitle());
-                streamField(emitter, runId, "description", content.getDescription());
-
-                if (content.getCtaText() != null) {
-                    streamField(emitter, runId, "ctaText", content.getCtaText());
+                if (!emitterCompleted.get() && content.getCtaText() != null) {
+                    streamField(emitter, runId, "ctaText", content.getCtaText(), emitterCompleted);
                 }
-                if (content.getCtaUrl() != null) {
-                    streamField(emitter, runId, "ctaUrl", content.getCtaUrl());
+                if (!emitterCompleted.get() && content.getCtaUrl() != null) {
+                    streamField(emitter, runId, "ctaUrl", content.getCtaUrl(), emitterCompleted);
                 }
-                if (content.getPrice() != null) {
-                    streamField(emitter, runId, "price", content.getPrice());
+                if (!emitterCompleted.get() && content.getPrice() != null) {
+                    streamField(emitter, runId, "price", content.getPrice(), emitterCompleted);
                 }
-                if (content.getImageUrl() != null) {
-                    streamField(emitter, runId, "imageUrl", content.getImageUrl());
+                if (!emitterCompleted.get() && content.getImageUrl() != null) {
+                    streamField(emitter, runId, "imageUrl", content.getImageUrl(), emitterCompleted);
                 }
 
                 // 5. Emit complete content as state
-                emitEvent(emitter, STATE_DELTA, Map.of(
-                    "runId", runId,
-                    "delta", Map.of(
-                        "content", content,
-                        "componentType", content.getComponentType()
-                    )
-                ));
+                if (!emitterCompleted.get()) {
+                    emitEvent(emitter, STATE_DELTA, Map.of(
+                        "runId", runId,
+                        "delta", Map.of(
+                            "content", content,
+                            "componentType", content.getComponentType()
+                        )
+                    ));
+                }
 
                 // 6. Emit RUN_FINISHED
-                emitEvent(emitter, RUN_FINISHED, Map.of(
-                    "runId", runId,
-                    "status", "completed",
-                    "content", content
-                ));
-
-                emitter.complete();
+                if (!emitterCompleted.get()) {
+                    emitEvent(emitter, RUN_FINISHED, Map.of(
+                        "runId", runId,
+                        "status", "completed",
+                        "content", content
+                    ));
+                    emitter.complete();
+                }
 
             } catch (Exception e) {
-                log.error("Streaming error: {}", e.getMessage(), e);
-                try {
-                    emitEvent(emitter, RUN_ERROR, Map.of(
-                        "runId", runId,
-                        "error", e.getMessage()
-                    ));
-                    emitter.completeWithError(e);
-                } catch (IOException ignored) {}
+                // Check if this is a client disconnection (expected behavior)
+                if (isClientDisconnection(e)) {
+                    log.debug("Client disconnected during streaming (runId: {})", runId);
+                } else {
+                    log.error("Streaming error for runId {}: {}", runId, e.getMessage());
+                    // Only try to send error if emitter is still active
+                    if (!emitterCompleted.get()) {
+                        try {
+                            emitEvent(emitter, RUN_ERROR, Map.of(
+                                "runId", runId,
+                                "error", e.getMessage() != null ? e.getMessage() : "Unknown error"
+                            ));
+                            emitter.completeWithError(e);
+                        } catch (Exception ignored) {
+                            // Emitter already closed, ignore
+                        }
+                    }
+                }
             }
         });
     }
 
     /**
-     * Stream a single field with character-by-character simulation.
+     * Stream a single field - sends complete value immediately (no artificial delay).
      */
-    private void streamField(SseEmitter emitter, String runId, String fieldName, String value)
+    private void streamField(SseEmitter emitter, String runId, String fieldName, String value,
+            java.util.concurrent.atomic.AtomicBoolean emitterCompleted)
             throws IOException, InterruptedException {
         if (value == null || value.isEmpty()) return;
+        if (emitterCompleted.get()) return;
 
         String messageId = UUID.randomUUID().toString();
 
@@ -145,25 +186,16 @@ public class StreamingContentService {
             "field", fieldName
         ));
 
-        // Stream in chunks (words for better UX)
-        String[] words = value.split("(?<=\\s)|(?=\\s)");
-        StringBuilder accumulated = new StringBuilder();
+        // Send complete value immediately (no artificial delays)
+        emitEvent(emitter, TEXT_MESSAGE_DELTA, Map.of(
+            "runId", runId,
+            "messageId", messageId,
+            "field", fieldName,
+            "delta", value,
+            "content", value
+        ));
 
-        for (String word : words) {
-            accumulated.append(word);
-
-            // TEXT_MESSAGE_DELTA
-            emitEvent(emitter, TEXT_MESSAGE_DELTA, Map.of(
-                "runId", runId,
-                "messageId", messageId,
-                "field", fieldName,
-                "delta", word,
-                "content", accumulated.toString()
-            ));
-
-            // Small delay for streaming effect (30-80ms per word)
-            Thread.sleep(30 + (int)(Math.random() * 50));
-        }
+        if (emitterCompleted.get()) return;
 
         // TEXT_MESSAGE_END
         emitEvent(emitter, TEXT_MESSAGE_END, Map.of(
@@ -172,9 +204,6 @@ public class StreamingContentService {
             "field", fieldName,
             "content", value
         ));
-
-        // Brief pause between fields
-        Thread.sleep(100);
     }
 
     /**
@@ -196,21 +225,140 @@ public class StreamingContentService {
 
             log.debug("Emitted SSE event: {} - {}", eventType, data.get("field"));
         } catch (Exception e) {
-            log.error("Failed to emit SSE event: {}", e.getMessage());
+            if (isClientDisconnection(e)) {
+                log.debug("Client disconnected, cannot emit SSE event: {}", eventType);
+            } else {
+                log.error("Failed to emit SSE event: {}", e.getMessage());
+            }
             throw e;
         }
     }
 
     /**
      * Create a configured SseEmitter with appropriate timeout.
+     * Note: Callbacks are set in streamContentGeneration to track state.
      */
     public SseEmitter createEmitter() {
-        SseEmitter emitter = new SseEmitter(120000L); // 2 minute timeout
+        return new SseEmitter(120000L); // 2 minute timeout
+    }
 
-        emitter.onCompletion(() -> log.debug("SSE completed"));
-        emitter.onTimeout(() -> log.warn("SSE timeout"));
-        emitter.onError(e -> log.error("SSE error: {}", e.getMessage()));
+    /**
+     * Stream raw LLM output directly - true streaming like CLI.
+     * Tokens are sent to client as soon as Ollama generates them.
+     */
+    public void streamRawGeneration(String prompt, SseEmitter emitter) {
+        String runId = UUID.randomUUID().toString();
+        final java.util.concurrent.atomic.AtomicBoolean emitterCompleted = new java.util.concurrent.atomic.AtomicBoolean(false);
 
-        return emitter;
+        emitter.onCompletion(() -> emitterCompleted.set(true));
+        emitter.onTimeout(() -> emitterCompleted.set(true));
+        emitter.onError(e -> emitterCompleted.set(true));
+
+        executor.execute(() -> {
+            try {
+                // Emit RUN_STARTED
+                emitEvent(emitter, RUN_STARTED, Map.of("runId", runId, "mode", "raw_streaming"));
+
+                StringBuilder fullResponse = new StringBuilder();
+                String messageId = UUID.randomUUID().toString();
+
+                // Start message
+                emitEvent(emitter, TEXT_MESSAGE_START, Map.of(
+                    "runId", runId,
+                    "messageId", messageId,
+                    "field", "content"
+                ));
+
+                // True streaming from LLM
+                llmService.generateStreaming(prompt,
+                    // onToken - called for each token from Ollama
+                    token -> {
+                        if (emitterCompleted.get()) return;
+                        fullResponse.append(token);
+                        try {
+                            emitEvent(emitter, TEXT_MESSAGE_DELTA, Map.of(
+                                "runId", runId,
+                                "messageId", messageId,
+                                "field", "content",
+                                "delta", token,
+                                "content", fullResponse.toString()
+                            ));
+                        } catch (Exception e) {
+                            log.debug("Failed to emit token: {}", e.getMessage());
+                        }
+                    },
+                    // onComplete
+                    () -> {
+                        if (emitterCompleted.get()) return;
+                        try {
+                            emitEvent(emitter, TEXT_MESSAGE_END, Map.of(
+                                "runId", runId,
+                                "messageId", messageId,
+                                "field", "content",
+                                "content", fullResponse.toString()
+                            ));
+                            emitEvent(emitter, RUN_FINISHED, Map.of(
+                                "runId", runId,
+                                "status", "completed",
+                                "content", fullResponse.toString()
+                            ));
+                            emitter.complete();
+                        } catch (Exception e) {
+                            log.debug("Failed to complete: {}", e.getMessage());
+                        }
+                    }
+                );
+
+            } catch (Exception e) {
+                if (!isClientDisconnection(e) && !emitterCompleted.get()) {
+                    log.error("Raw streaming error: {}", e.getMessage());
+                    try {
+                        emitEvent(emitter, RUN_ERROR, Map.of("runId", runId, "error", e.getMessage()));
+                        emitter.completeWithError(e);
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
+    }
+
+    /**
+     * Check if the exception indicates a client disconnection or emitter already completed.
+     * This is expected behavior when the user navigates away or closes the connection.
+     */
+    private boolean isClientDisconnection(Throwable e) {
+        // Check the exception chain for common disconnection indicators
+        Throwable current = e;
+        while (current != null) {
+            String className = current.getClass().getName();
+            String message = current.getMessage();
+
+            // ClientAbortException - Tomcat's indicator for client disconnect
+            if (className.contains("ClientAbortException")) {
+                return true;
+            }
+
+            // IllegalStateException when emitter is already completed
+            if (current instanceof IllegalStateException) {
+                if (message != null && (
+                    message.contains("already completed") ||
+                    message.contains("ResponseBodyEmitter"))) {
+                    return true;
+                }
+            }
+
+            // IOException with "Broken pipe" or "Connection reset" messages
+            if (current instanceof IOException) {
+                if (message != null && (
+                    message.contains("Broken pipe") ||
+                    message.contains("Connection reset") ||
+                    message.contains("Connection refused") ||
+                    message.contains("Stream closed"))) {
+                    return true;
+                }
+            }
+
+            current = current.getCause();
+        }
+        return false;
     }
 }

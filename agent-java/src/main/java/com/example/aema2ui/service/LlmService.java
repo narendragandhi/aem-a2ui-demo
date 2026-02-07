@@ -6,11 +6,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Service for LLM integration supporting multiple providers:
@@ -58,9 +64,24 @@ public class LlmService {
     @Value("${aem.agent.llm.ollama.model:llama3.2}")
     private String ollamaModel;
 
+    // Timeout configuration (in milliseconds)
+    @Value("${aem.agent.llm.timeout.connect:5000}")
+    private int connectTimeout;
+
+    @Value("${aem.agent.llm.timeout.read:60000}")
+    private int readTimeout;
+
     public LlmService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder().build();
+
+        // Configure timeouts to prevent hanging on slow responses
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);  // 5 second connect timeout
+        factory.setReadTimeout(60000);    // 60 second read timeout for LLM responses
+
+        this.restClient = RestClient.builder()
+            .requestFactory(factory)
+            .build();
     }
 
     /**
@@ -194,6 +215,66 @@ public class LlmService {
     }
 
     /**
+     * Stream generation from Ollama with real-time token callbacks.
+     * This provides true streaming like CLI does.
+     */
+    public void generateStreaming(String prompt, Consumer<String> onToken, Runnable onComplete) {
+        if (!isEnabled() || !llmProvider.equalsIgnoreCase("ollama")) {
+            // Fallback: generate full response and send as one chunk
+            String response = generate(prompt);
+            onToken.accept(response);
+            onComplete.run();
+            return;
+        }
+
+        try {
+            URL url = new URL(ollamaBaseUrl + "/api/generate");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(connectTimeout);
+            conn.setReadTimeout(readTimeout);
+
+            // Request with streaming enabled
+            String requestBody = objectMapper.writeValueAsString(Map.of(
+                "model", ollamaModel,
+                "prompt", prompt,
+                "stream", true
+            ));
+
+            conn.getOutputStream().write(requestBody.getBytes());
+
+            // Read streaming response line by line
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty()) continue;
+
+                    JsonNode json = objectMapper.readTree(line);
+                    String token = json.path("response").asText();
+
+                    if (token != null && !token.isEmpty()) {
+                        onToken.accept(token);
+                    }
+
+                    // Check if done
+                    if (json.path("done").asBoolean(false)) {
+                        break;
+                    }
+                }
+            }
+
+            onComplete.run();
+
+        } catch (Exception e) {
+            log.error("Ollama streaming error: {}", e.getMessage());
+            throw new RuntimeException("Ollama streaming failed", e);
+        }
+    }
+
+    /**
      * Generate structured JSON output from the LLM.
      */
     public <T> T generateObject(String prompt, Class<T> targetClass) {
@@ -239,8 +320,34 @@ public class LlmService {
      * Attempt to repair common JSON formatting issues from LLMs.
      */
     private String repairJson(String json) {
-        // Fix missing commas between properties (common LLM issue)
-        // Pattern: }" or ]" followed by newline and "property":
+        // Extract JSON object if there's garbage before/after
+        int firstBrace = json.indexOf('{');
+        int lastBrace = json.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            json = json.substring(firstBrace, lastBrace + 1);
+        } else if (firstBrace >= 0) {
+            json = json.substring(firstBrace);
+        }
+
+        // Fix hallucinated text in URL values (common with phi3:mini)
+        // Pattern: URL with garbage after the query param
+        json = json.replaceAll(
+            "(\"https?://[^\"]+\\?w=\\d+)[^\"]*\"",
+            "$1\""
+        );
+
+        // Fix any truncated string that has no closing quote
+        // Add closing quote before we add missing braces
+        if (!json.endsWith("}") && !json.endsWith("\"")) {
+            int lastQuote = json.lastIndexOf('"');
+            int lastColon = json.lastIndexOf(':');
+            if (lastColon > lastQuote) {
+                // We have an unclosed value, add quote
+                json = json + "\"";
+            }
+        }
+
+        // Fix missing commas between properties
         json = json.replaceAll("\"\\s*\\n\\s*\"", "\",\n\"");
 
         // Fix trailing commas before closing brackets

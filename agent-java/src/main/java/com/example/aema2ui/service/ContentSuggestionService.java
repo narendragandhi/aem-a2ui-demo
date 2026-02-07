@@ -209,6 +209,7 @@ public class ContentSuggestionService {
 
     /**
      * Builds the data model for the suggestion.
+     * Returns A2UI-compliant list of key-value entries.
      */
     private List<Map<String, Object>> buildDataModel(ContentSuggestion suggestion) {
         List<Map<String, Object>> data = new ArrayList<>();

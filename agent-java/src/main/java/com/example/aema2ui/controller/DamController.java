@@ -176,4 +176,72 @@ public class DamController {
             "connected", httpClient.isConnected()
         ));
     }
+
+    /**
+     * Proxy endpoint for fetching images from AEM DAM.
+     * This solves CORS issues and handles authentication to AEM.
+     *
+     * @param path The DAM asset path (e.g., /content/dam/aem-demo/image.jpg)
+     * @param rendition Optional rendition name (default: cq5dam.thumbnail.319.319.png)
+     * @return The image bytes with appropriate content type
+     */
+    @GetMapping("/proxy")
+    public ResponseEntity<byte[]> proxyImage(
+            @RequestParam String path,
+            @RequestParam(required = false, defaultValue = "cq5dam.thumbnail.319.319.png") String rendition) {
+
+        if (!httpClient.isConnected()) {
+            return ResponseEntity.status(503).build();
+        }
+
+        try {
+            byte[] imageData;
+
+            if ("original".equals(rendition)) {
+                // Fetch the original asset
+                imageData = httpClient.getBinary(path);
+            } else {
+                // Build the rendition path
+                String imagePath = path + "/jcr:content/renditions/" + rendition;
+                imageData = httpClient.getBinary(imagePath);
+
+                if (imageData == null || imageData.length == 0) {
+                    // Try web rendition if thumbnail not found
+                    imagePath = path + "/jcr:content/renditions/cq5dam.web.1280.1280.jpeg";
+                    imageData = httpClient.getBinary(imagePath);
+                }
+
+                if (imageData == null || imageData.length == 0) {
+                    // Try original asset if renditions not found
+                    imageData = httpClient.getBinary(path);
+                }
+            }
+
+            if (imageData == null || imageData.length == 0) {
+                log.warn("Image not found at path: {}", path);
+                return ResponseEntity.notFound().build();
+            }
+
+            // Determine content type from rendition/path
+            String contentType = "image/png";
+            if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+                contentType = "image/jpeg";
+            } else if (path.endsWith(".gif")) {
+                contentType = "image/gif";
+            } else if (path.endsWith(".webp")) {
+                contentType = "image/webp";
+            } else if (path.endsWith(".svg")) {
+                contentType = "image/svg+xml";
+            }
+
+            return ResponseEntity.ok()
+                    .header("Content-Type", contentType)
+                    .header("Cache-Control", "public, max-age=3600")
+                    .body(imageData);
+
+        } catch (Exception e) {
+            log.error("Failed to proxy image: {}", path, e);
+            return ResponseEntity.status(500).build();
+        }
+    }
 }

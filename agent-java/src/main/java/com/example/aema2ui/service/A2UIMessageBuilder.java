@@ -161,7 +161,7 @@ public class A2UIMessageBuilder {
     // ========== Data Model Helpers ==========
 
     /**
-     * Creates a string data entry.
+     * Creates a data string entry for data model updates.
      */
     public Map<String, Object> dataString(String key, String value) {
         Map<String, Object> entry = new LinkedHashMap<>();
@@ -171,7 +171,7 @@ public class A2UIMessageBuilder {
     }
 
     /**
-     * Creates a number data entry.
+     * Creates a data number entry for data model updates.
      */
     public Map<String, Object> dataNumber(String key, Number value) {
         Map<String, Object> entry = new LinkedHashMap<>();
@@ -181,7 +181,7 @@ public class A2UIMessageBuilder {
     }
 
     /**
-     * Creates a boolean data entry.
+     * Creates a data boolean entry for data model updates.
      */
     public Map<String, Object> dataBoolean(String key, Boolean value) {
         Map<String, Object> entry = new LinkedHashMap<>();

@@ -27,86 +27,28 @@ public class AemContentAgent {
 
     private final LlmService llmService;
 
-    // Prompts for LLM integration
+    // Condensed prompt for intent parsing
     public static final String PARSE_INPUT_PROMPT = """
-        Analyze the following user request for AEM content creation and extract the following as JSON:
-        - detectedComponentType: The type of component (hero, product, teaser, banner, or general)
-        - targetAudience: The target audience mentioned (or "general audience" if not specified)
-        - brandStyle: Any brand or style preferences (or "professional and modern" if not specified)
-        - toneOfVoice: The tone requested (or "professional yet approachable" if not specified)
-
-        User request: %s
-
-        Respond with JSON only:
-        {"detectedComponentType": "...", "targetAudience": "...", "brandStyle": "...", "toneOfVoice": "..."}
+        Extract from request: %s
+        JSON: {"detectedComponentType":"hero|product|teaser|banner|general","targetAudience":"audience","brandStyle":"style","toneOfVoice":"tone"}
         """;
 
-    // Brand guidelines that inform all content generation
+    // Condensed brand guidelines for faster LLM processing
     public static final String BRAND_GUIDELINES = """
-        === BRAND GUIDELINES FOR ACME CORP ===
-
-        BRAND VOICE:
-        - Tone: Professional, Innovative, Trustworthy
-        - Personality: We speak with confidence but never arrogance. We're experts who make complex ideas accessible.
-
-        WRITING RULES:
-        - Headlines: Bold, concise, action-oriented (max 6 words)
-        - Use action verbs: Transform, Discover, Unlock, Accelerate, Simplify, Elevate, Power, Build
-        - Body copy: Clear, scannable, max 2 sentences per thought
-        - AVOID: Jargon, passive voice, superlatives like "best" or "leading"
-
-        VALUE PILLARS (incorporate these themes):
-        - Speed & Efficiency
-        - Enterprise Security
-        - Seamless Integration
-
-        TARGET AUDIENCE: Enterprise IT decision-makers and digital marketers
-
-        CTA STYLE: Action verbs with urgency but not pressure
-        - Good CTAs: "Start Free Trial", "See It In Action", "Get Your Demo", "Explore Now"
-        - Avoid: "Buy Now", "Don't Miss Out", "Act Fast"
-
-        EXAMPLE GOOD HEADLINES:
-        - "Transform Your Workflow in Minutes"
-        - "Security That Scales With You"
-        - "One Platform. Endless Possibilities."
-
-        === END BRAND GUIDELINES ===
+        BRAND: Acme Corp - Professional, Innovative, Trustworthy
+        HEADLINES: Action verbs (Transform, Discover, Unlock), max 6 words
+        COPY: Clear, scannable, under 150 chars
+        CTAs: "Start Free Trial", "See It In Action", "Explore Now"
+        AVOID: Jargon, passive voice, "best/leading"
         """;
 
     public static final String GENERATE_CONTENT_PROMPT = """
-        You are a brand-aware content generation AI for Acme Corp.
-
         %s
+        Generate %s content for: %s
+        Audience: %s | Style: %s | Tone: %s
 
-        Generate compelling marketing content for an AEM %s component.
-
-        Context:
-        - Target audience: %s
-        - Brand style: %s
-        - Tone of voice: %s
-        - Original request: %s
-
-        IMPORTANT REQUIREMENTS:
-        1. Follow the brand guidelines above strictly
-        2. Use action-oriented headlines (6 words or less)
-        3. Incorporate at least one value pillar theme
-        4. Keep descriptions scannable (under 150 characters)
-        5. Use approved CTA styles only
-        6. Never use words from the "AVOID" list
-
-        Respond with JSON only:
-        {
-          "title": "Action-oriented headline following brand voice",
-          "subtitle": "Supporting subtitle that reinforces value",
-          "description": "Clear, scannable description incorporating value pillars",
-          "ctaText": "Brand-approved CTA text",
-          "ctaUrl": "/relevant-url",
-          "imageUrl": "https://images.unsplash.com/photo-XXXXX?w=800",
-          "imageAlt": "Descriptive alt text for the image"
-        }
-
-        Make the content feel authentic, professional, and aligned with brand guidelines.
+        Reply ONLY with this JSON (no other text):
+        {"title":"short headline","subtitle":"value prop","description":"brief copy","ctaText":"action","ctaUrl":"/path"}
         """;
 
     @Autowired
@@ -116,15 +58,33 @@ public class AemContentAgent {
 
     /**
      * Parse user input to understand their intent.
-     * Uses LLM when enabled, otherwise falls back to keyword matching.
+     * PERFORMANCE OPTIMIZATION: Uses fast keyword matching first.
+     * Only uses LLM for complex inputs where component type is unclear.
      */
     @Action
     public UserInput parseUserIntent(String rawInput) {
         log.info("Parsing user intent from: {}", rawInput);
 
+        String input = rawInput != null ? rawInput.toLowerCase() : "";
+        String detectedType = detectComponentType(input);
+
+        // OPTIMIZATION: Skip LLM parsing if we can clearly detect component type
+        // This saves one LLM call per request for common cases
+        if (!detectedType.equals("general")) {
+            log.info("Fast path: detected component type '{}' from keywords", detectedType);
+            return UserInput.builder()
+                .rawText(rawInput)
+                .detectedComponentType(detectedType)
+                .targetAudience("general audience")
+                .brandStyle("professional and modern")
+                .toneOfVoice("professional yet approachable")
+                .build();
+        }
+
+        // Only use LLM for ambiguous inputs where we need deeper understanding
         if (llmService.isEnabled()) {
             try {
-                log.info("Using {} for intent parsing", llmService.getProvider());
+                log.info("Using {} for intent parsing (complex input)", llmService.getProvider());
                 UserInput parsed = llmService.generateObject(
                     String.format(PARSE_INPUT_PROMPT, rawInput),
                     UserInput.class
@@ -138,11 +98,9 @@ public class AemContentAgent {
         }
 
         // Fallback to keyword matching
-        String input = rawInput != null ? rawInput.toLowerCase() : "";
-
         UserInput parsed = UserInput.builder()
             .rawText(rawInput)
-            .detectedComponentType(detectComponentType(input))
+            .detectedComponentType(detectedType)
             .targetAudience("general audience")
             .brandStyle("professional and modern")
             .toneOfVoice("professional yet approachable")
@@ -181,7 +139,7 @@ public class AemContentAgent {
 
                 ContentSuggestion suggestion = llmService.generateObject(
                     String.format(GENERATE_CONTENT_PROMPT,
-                        BRAND_GUIDELINES, componentType, audience, brandStyle, tone, input.getRawText()),
+                        BRAND_GUIDELINES, componentType, input.getRawText(), audience, brandStyle, tone),
                     ContentSuggestion.class
                 );
 
@@ -207,6 +165,20 @@ public class AemContentAgent {
         return suggestion;
     }
 
+    /**
+     * Generate content using templates only (no LLM).
+     * Fast path for instant responses.
+     */
+    public ContentSuggestion generateTemplateContent(String rawInput, String componentType) {
+        String type = componentType != null && !componentType.isEmpty()
+            ? componentType
+            : detectComponentType(rawInput.toLowerCase());
+        ContentSuggestion suggestion = createTemplateSuggestion(type, rawInput);
+        suggestion.setComponentType(type);
+        log.info("Template-only content generated for type: {}", type);
+        return suggestion;
+    }
+
     private String detectComponentType(String input) {
         if (input.contains("hero")) return "hero";
         if (input.contains("product")) return "product";
@@ -225,55 +197,72 @@ public class AemContentAgent {
         };
     }
 
+    // Multiple template variations for variety
+    private static final String[][] HERO_TEMPLATES = {
+        {"Transform Your Digital Experience", "Innovation Meets Simplicity", "Empower your team with tools designed for the modern enterprise.", "See It In Action", "/demo"},
+        {"Unlock Your Team's Potential", "Speed & Efficiency Redefined", "Accelerate productivity with seamless workflow automation.", "Start Free Trial", "/trial"},
+        {"Elevate Your Business Today", "Enterprise-Grade Solutions", "Scale confidently with security and performance built-in.", "Get Started", "/start"},
+        {"Discover Smarter Workflows", "Automation That Adapts", "Reduce manual work by 70% with intelligent process automation.", "Watch Demo", "/demo"},
+        {"Build the Future of Work", "Collaboration Reimagined", "Connect teams, tools, and data in one unified platform.", "Explore Now", "/explore"}
+    };
+
+    private static final String[][] PRODUCT_TEMPLATES = {
+        {"Enterprise Security Suite", "Protection That Scales", "Zero-trust security trusted by Fortune 500 companies.", "Start Free Trial", "$299/mo"},
+        {"Workflow Automation Pro", "Automate Everything", "Build powerful automations without writing code.", "Try It Free", "$149/mo"},
+        {"Analytics Dashboard Plus", "Insights in Real-Time", "Make data-driven decisions with live dashboards.", "Get Started", "$199/mo"},
+        {"Team Collaboration Hub", "Work Better Together", "All your communication and files in one place.", "Start Free", "$99/mo"},
+        {"Cloud Integration Platform", "Connect Any System", "500+ pre-built connectors. Deploy in minutes.", "View Pricing", "$249/mo"}
+    };
+
+    private static final String[][] TEASER_TEMPLATES = {
+        {"Seamless Integrations", "Connect Your Stack", "One-click integrations with 200+ enterprise tools.", "Learn More", "/integrations"},
+        {"Real-Time Analytics", "Data at Your Fingertips", "Track KPIs and metrics that matter most.", "See Features", "/analytics"},
+        {"Enterprise Security", "Bank-Grade Protection", "SOC 2 certified with end-to-end encryption.", "View Security", "/security"},
+        {"24/7 Support", "We're Here For You", "Expert support whenever you need it most.", "Contact Us", "/support"},
+        {"Global Scale", "Deploy Anywhere", "99.99% uptime with data centers worldwide.", "See Infrastructure", "/infrastructure"}
+    };
+
+    private static final String[][] BANNER_TEMPLATES = {
+        {"Limited Time: 30% Off Annual Plans", "Enterprise-Ready Today", "Join 10,000+ companies already transforming.", "Claim Offer", "/pricing"},
+        {"Free Workshop: Digital Transformation", "Learn From Experts", "Register now for our upcoming masterclass.", "Reserve Spot", "/workshop"},
+        {"New Feature: AI-Powered Insights", "Smarter Decisions Faster", "Discover patterns humans miss with ML analytics.", "Try It Now", "/ai-features"},
+        {"Customer Success Story", "How Acme Saved 40% on Ops", "Read how leading companies achieve more.", "Read Case Study", "/customers"},
+        {"Product Update: v3.0 Released", "Faster. Smarter. Better.", "50+ new features and 2x performance boost.", "See What's New", "/changelog"}
+    };
+
+    private int templateIndex = 0;
+
     private ContentSuggestion createTemplateSuggestion(String componentType, String rawInput) {
-        // Templates follow brand guidelines: action verbs, value pillars, approved CTA styles
-        return switch (componentType.toLowerCase()) {
-            case "hero" -> ContentSuggestion.builder()
-                .title("Transform Your Workflow")
-                .subtitle("Speed & Efficiency Redefined")
-                .description("Accelerate your team's productivity with seamless enterprise integration.")
-                .ctaText("See It In Action")
-                .ctaUrl("/demo")
-                .imageUrl("https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200")
-                .imageAlt("Modern enterprise dashboard")
-                .build();
-            case "product" -> ContentSuggestion.builder()
-                .title("Unlock Enterprise Power")
-                .subtitle("Security That Scales")
-                .description("Built for enterprises. Trusted by security teams worldwide.")
-                .ctaText("Start Free Trial")
-                .ctaUrl("/trial")
-                .imageUrl("https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800")
-                .imageAlt("Enterprise product showcase")
-                .price("Contact Sales")
-                .build();
-            case "teaser" -> ContentSuggestion.builder()
-                .title("Discover Seamless Integration")
-                .subtitle("Connect Everything")
-                .description("One platform. Endless possibilities. Your tools, unified.")
-                .ctaText("Explore Now")
-                .ctaUrl("/integrations")
-                .imageUrl("https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600")
-                .imageAlt("Integration ecosystem")
-                .build();
-            case "banner" -> ContentSuggestion.builder()
-                .title("Accelerate Your Growth")
-                .subtitle("Enterprise-Ready Today")
-                .description("Join thousands of companies transforming their operations.")
-                .ctaText("Get Your Demo")
-                .ctaUrl("/contact")
-                .imageUrl("https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200")
-                .imageAlt("Team collaboration")
-                .build();
-            default -> ContentSuggestion.builder()
-                .title("Simplify Your Operations")
-                .subtitle("Built for Enterprise")
-                .description("Powerful solutions designed for scale, security, and speed.")
-                .ctaText("Learn More")
-                .ctaUrl("/overview")
-                .imageUrl("https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800")
-                .imageAlt("Modern office environment")
-                .build();
+        // Rotate through templates for variety
+        String[][] templates = switch (componentType.toLowerCase()) {
+            case "hero" -> HERO_TEMPLATES;
+            case "product" -> PRODUCT_TEMPLATES;
+            case "teaser" -> TEASER_TEMPLATES;
+            case "banner" -> BANNER_TEMPLATES;
+            default -> HERO_TEMPLATES;
         };
+
+        // Use input hash to select template (same input = same output, different input = different output)
+        int index = Math.abs(rawInput.hashCode()) % templates.length;
+        String[] t = templates[index];
+
+        String imageUrl = getDefaultImageUrl(componentType);
+
+        ContentSuggestion.ContentSuggestionBuilder builder = ContentSuggestion.builder()
+            .title(t[0])
+            .subtitle(t[1])
+            .description(t[2])
+            .ctaText(t[3])
+            .ctaUrl(t[4])
+            .imageUrl(imageUrl)
+            .imageAlt(t[0]);
+
+        // Add price for product type
+        if (componentType.equalsIgnoreCase("product") && t.length > 4) {
+            builder.price(t[4]);
+            builder.ctaUrl("/pricing");
+        }
+
+        return builder.build();
     }
 }

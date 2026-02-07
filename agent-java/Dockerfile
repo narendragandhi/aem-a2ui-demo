@@ -12,7 +12,7 @@ COPY src ./src
 RUN mvn package -DskipTests -B
 
 # Runtime stage
-FROM eclipse-temurin:17-jre-alpine
+FROM amazoncorretto:17-alpine-jdk
 
 WORKDIR /app
 
@@ -30,10 +30,6 @@ USER appuser
 
 # Expose port
 EXPOSE 10003
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:10003/ || exit 1
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

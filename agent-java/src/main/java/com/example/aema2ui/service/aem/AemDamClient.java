@@ -22,9 +22,10 @@ public class AemDamClient {
     private final AemConfig config;
 
     /**
-     * List assets in a folder
+     * List assets in a folder using Sling JSON export.
+     * Works on all AEM versions without additional configuration.
      *
-     * @param folderPath Path to the folder (e.g., /content/dam/aem-demo)
+     * @param folderPath Path to the folder (e.g., /content/dam/wknd)
      * @return List of assets in the folder
      */
     public List<DamAsset> listAssets(String folderPath) {
@@ -34,16 +35,24 @@ public class AemDamClient {
         }
 
         try {
-            // Use Assets HTTP API
-            String apiPath = "/api/assets" + folderPath + ".json";
+            // Use Sling JSON export with depth 1 (immediate children only)
+            String apiPath = folderPath + ".1.json";
             JsonNode response = httpClient.get(apiPath);
 
             List<DamAsset> assets = new ArrayList<>();
 
-            // Parse entities (children)
-            if (response.has("entities") && response.get("entities").isArray()) {
-                for (JsonNode entity : response.get("entities")) {
-                    DamAsset asset = parseAsset(entity);
+            // Iterate through all child nodes
+            Iterator<String> fieldNames = response.fieldNames();
+            while (fieldNames.hasNext()) {
+                String childName = fieldNames.next();
+                // Skip JCR system properties
+                if (childName.startsWith("jcr:") || childName.startsWith("rep:")) {
+                    continue;
+                }
+
+                JsonNode childNode = response.get(childName);
+                if (childNode.isObject()) {
+                    DamAsset asset = parseSlingAsset(childNode, folderPath + "/" + childName, childName);
                     if (asset != null) {
                         assets.add(asset);
                     }
@@ -111,7 +120,7 @@ public class AemDamClient {
     }
 
     /**
-     * Get a single asset's details
+     * Get a single asset's details using Sling JSON export.
      *
      * @param assetPath Path to the asset
      * @return Asset details or null if not found
@@ -122,9 +131,11 @@ public class AemDamClient {
         }
 
         try {
-            String apiPath = "/api/assets" + assetPath + ".json";
+            // Use Sling JSON export with depth 2 for metadata access
+            String apiPath = assetPath + ".2.json";
             JsonNode response = httpClient.get(apiPath);
-            return parseAssetDetails(response, assetPath);
+            String name = assetPath.substring(assetPath.lastIndexOf('/') + 1);
+            return parseSlingAssetDetails(response, assetPath, name);
         } catch (Exception e) {
             log.error("Failed to get asset: {}", assetPath, e);
             return null;
@@ -162,56 +173,75 @@ public class AemDamClient {
     }
 
     /**
-     * Parse asset from Assets API entity
+     * Parse asset from Sling JSON export (folder listing).
      */
-    private DamAsset parseAsset(JsonNode entity) {
+    private DamAsset parseSlingAsset(JsonNode node, String path, String name) {
         try {
-            JsonNode properties = entity.path("properties");
+            String primaryType = getTextValue(node, "jcr:primaryType", "");
 
-            String path = getTextValue(properties, "path", null);
-            if (path == null) {
-                path = getTextValue(entity, "href", null);
+            // Check if it's a folder or asset
+            boolean isFolder = "sling:Folder".equals(primaryType) ||
+                               "sling:OrderedFolder".equals(primaryType) ||
+                               "nt:folder".equals(primaryType);
+            boolean isAsset = "dam:Asset".equals(primaryType);
+
+            if (!isFolder && !isAsset) {
+                return null; // Skip non-DAM nodes
             }
 
-            String name = getTextValue(properties, "name", "");
-            String title = getTextValue(properties, "dc:title", name);
+            String title = name;
+            String mimeType = null;
+            String type = isFolder ? "folder" : "file";
 
-            // Determine type
-            String classType = "";
-            if (entity.has("class") && entity.get("class").isArray()) {
-                for (JsonNode cls : entity.get("class")) {
-                    classType = cls.asText();
-                    break;
+            // For assets, try to get metadata from jcr:content/metadata
+            if (isAsset && node.has("jcr:content")) {
+                JsonNode jcrContent = node.get("jcr:content");
+                if (jcrContent.has("metadata")) {
+                    JsonNode metadata = jcrContent.get("metadata");
+                    title = getTextValue(metadata, "dc:title", name);
+                    mimeType = getTextValue(metadata, "dc:format", null);
+                    type = determineAssetType(metadata);
                 }
             }
 
-            boolean isFolder = "assets/folder".equals(classType);
-            String type = isFolder ? "folder" : determineAssetType(properties);
-
             return DamAsset.builder()
-                .path(path != null ? path.replace("/api/assets", "") : null)
+                .path(path)
                 .name(name)
                 .title(title)
                 .type(type)
                 .folder(isFolder)
-                .mimeType(getTextValue(properties, "dc:format", null))
-                .thumbnailUrl(buildThumbnailUrl(path))
+                .mimeType(mimeType)
+                .thumbnailUrl(isAsset ? buildThumbnailUrl(path) : null)
                 .build();
         } catch (Exception e) {
-            log.warn("Failed to parse asset", e);
+            log.warn("Failed to parse asset: {}", path, e);
             return null;
         }
     }
 
     /**
-     * Parse full asset details from API response
+     * Parse full asset details from Sling JSON export.
      */
-    private DamAsset parseAssetDetails(JsonNode response, String path) {
+    private DamAsset parseSlingAssetDetails(JsonNode response, String path, String name) {
         try {
-            JsonNode properties = response.path("properties");
-            JsonNode metadata = properties.path("metadata");
+            String primaryType = getTextValue(response, "jcr:primaryType", "");
+            boolean isFolder = "sling:Folder".equals(primaryType) ||
+                               "sling:OrderedFolder".equals(primaryType);
 
-            String name = getTextValue(properties, "name", path.substring(path.lastIndexOf('/') + 1));
+            if (isFolder) {
+                return DamAsset.builder()
+                    .path(path)
+                    .name(name)
+                    .title(name)
+                    .type("folder")
+                    .folder(true)
+                    .build();
+            }
+
+            // Get metadata from jcr:content/metadata
+            JsonNode jcrContent = response.path("jcr:content");
+            JsonNode metadata = jcrContent.path("metadata");
+
             String title = getTextValue(metadata, "dc:title", name);
             String mimeType = getTextValue(metadata, "dc:format", null);
 
@@ -223,17 +253,16 @@ public class AemDamClient {
                 .mimeType(mimeType)
                 .width(getIntValue(metadata, "tiff:ImageWidth", null))
                 .height(getIntValue(metadata, "tiff:ImageLength", null))
-                .size(getLongValue(properties, "size", null))
                 .description(getTextValue(metadata, "dc:description", null))
-                .created(getTextValue(properties, "jcr:created", null))
-                .lastModified(getTextValue(properties, "jcr:lastModified", null))
-                .createdBy(getTextValue(properties, "jcr:createdBy", null))
+                .created(getTextValue(response, "jcr:created", null))
+                .lastModified(getTextValue(jcrContent, "jcr:lastModified", null))
+                .createdBy(getTextValue(response, "jcr:createdBy", null))
                 .thumbnailUrl(buildThumbnailUrl(path))
-                .originalUrl(httpClient.getAuthorUrl() + path)
+                .originalUrl(buildOriginalUrl(path))
                 .folder(false)
                 .build();
         } catch (Exception e) {
-            log.warn("Failed to parse asset details", e);
+            log.warn("Failed to parse asset details: {}", path, e);
             return null;
         }
     }
@@ -253,12 +282,30 @@ public class AemDamClient {
     }
 
     /**
-     * Build thumbnail URL for an asset
+     * Build thumbnail URL for an asset.
+     * Uses the proxy endpoint to avoid CORS issues and handle authentication.
      */
     private String buildThumbnailUrl(String path) {
         if (path == null) return null;
-        String cleanPath = path.replace("/api/assets", "");
-        return httpClient.getAuthorUrl() + cleanPath + "/jcr:content/renditions/cq5dam.thumbnail.319.319.png";
+        // Use proxy endpoint to avoid CORS issues - the frontend will call this
+        // URL format: /dam/proxy?path=/content/dam/...&rendition=cq5dam.thumbnail.319.319.png
+        try {
+            return "/dam/proxy?path=" + java.net.URLEncoder.encode(path, "UTF-8") + "&rendition=cq5dam.thumbnail.319.319.png";
+        } catch (java.io.UnsupportedEncodingException e) {
+            return "/dam/proxy?path=" + path + "&rendition=cq5dam.thumbnail.319.319.png";
+        }
+    }
+
+    /**
+     * Build original asset URL using proxy
+     */
+    private String buildOriginalUrl(String path) {
+        if (path == null) return null;
+        try {
+            return "/dam/proxy?path=" + java.net.URLEncoder.encode(path, "UTF-8") + "&rendition=original";
+        } catch (java.io.UnsupportedEncodingException e) {
+            return "/dam/proxy?path=" + path + "&rendition=original";
+        }
     }
 
     private String getTextValue(JsonNode node, String field, String defaultValue) {

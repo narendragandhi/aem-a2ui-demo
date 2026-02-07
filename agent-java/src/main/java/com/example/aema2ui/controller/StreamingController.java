@@ -50,12 +50,13 @@ public class StreamingController {
     @GetMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamGenerate(
             @RequestParam String input,
-            @RequestParam(required = false) String componentType) {
+            @RequestParam(required = false) String componentType,
+            @RequestParam(required = false, defaultValue = "false") boolean useAi) {
 
-        log.info("Starting SSE stream for input: '{}', componentType: {}", input, componentType);
+        log.info("Starting SSE stream for input: '{}', componentType: {}, useAi: {}", input, componentType, useAi);
 
         SseEmitter emitter = streamingService.createEmitter();
-        streamingService.streamContentGeneration(input, componentType, emitter);
+        streamingService.streamContentGeneration(input, componentType, emitter, useAi);
 
         return emitter;
     }
@@ -64,14 +65,31 @@ public class StreamingController {
      * POST variant for streaming (when input is complex/long).
      */
     @PostMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamGeneratePost(@RequestBody Map<String, String> request) {
-        String input = request.getOrDefault("input", "");
-        String componentType = request.get("componentType");
+    public SseEmitter streamGeneratePost(@RequestBody Map<String, Object> request) {
+        String input = (String) request.getOrDefault("input", "");
+        String componentType = (String) request.get("componentType");
+        boolean useAi = Boolean.TRUE.equals(request.get("useAi"));
 
-        log.info("Starting SSE stream (POST) for input: '{}', componentType: {}", input, componentType);
+        log.info("Starting SSE stream (POST) for input: '{}', componentType: {}, useAi: {}", input, componentType, useAi);
 
         SseEmitter emitter = streamingService.createEmitter();
-        streamingService.streamContentGeneration(input, componentType, emitter);
+        streamingService.streamContentGeneration(input, componentType, emitter, useAi);
+
+        return emitter;
+    }
+
+    /**
+     * Raw streaming - true token-by-token streaming from LLM.
+     * This is as fast as CLI because tokens are sent immediately.
+     *
+     * Use this for preview/draft content where JSON structure isn't needed.
+     */
+    @GetMapping(value = "/raw", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamRaw(@RequestParam String prompt) {
+        log.info("Starting raw SSE stream for prompt: '{}'", prompt.substring(0, Math.min(50, prompt.length())));
+
+        SseEmitter emitter = streamingService.createEmitter();
+        streamingService.streamRawGeneration(prompt, emitter);
 
         return emitter;
     }

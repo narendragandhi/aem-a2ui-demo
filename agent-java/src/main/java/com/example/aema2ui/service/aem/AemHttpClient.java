@@ -220,6 +220,24 @@ public class AemHttpClient {
     }
 
     /**
+     * GET request returning binary data (for images, files, etc.)
+     * @param path The path to fetch
+     * @return byte array of the response body, or null if failed
+     */
+    public byte[] getBinary(String path) {
+        try {
+            return restClient.get()
+                    .uri(config.getAuthorUrl() + path)
+                    .header(HttpHeaders.AUTHORIZATION, createBasicAuthHeader())
+                    .retrieve()
+                    .body(byte[].class);
+        } catch (Exception e) {
+            log.error("AEM GET binary failed: {} - {}", path, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Create Basic Auth header value
      */
     private String createBasicAuthHeader() {

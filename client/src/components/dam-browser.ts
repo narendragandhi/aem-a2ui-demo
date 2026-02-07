@@ -400,8 +400,14 @@ export class DamBrowser extends LitElement {
 
   private confirm() {
     if (this.selectedAsset) {
+      // Create a copy with proxied URLs for use in components
+      const assetWithProxiedUrls = {
+        ...this.selectedAsset,
+        thumbnailUrl: this.getProxiedUrl(this.selectedAsset.thumbnailUrl),
+        originalUrl: this.getProxiedUrl(this.selectedAsset.originalUrl),
+      };
       this.dispatchEvent(new CustomEvent('asset-selected', {
-        detail: { asset: this.selectedAsset },
+        detail: { asset: assetWithProxiedUrls },
         bubbles: true,
         composed: true
       }));
@@ -436,6 +442,36 @@ export class DamBrowser extends LitElement {
       case 'document': return '📄';
       case 'audio': return '🎵';
       default: return '📎';
+    }
+  }
+
+  /**
+   * Convert relative proxy URL to full URL with API_BASE.
+   * Handles both relative paths (from proxy) and absolute URLs.
+   */
+  private getProxiedUrl(url: string | undefined): string {
+    if (!url) return '';
+    // If it's already an absolute URL (http/https), return as-is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Otherwise, prepend API_BASE for proxy URLs
+    return `${API_BASE}${url}`;
+  }
+
+  /**
+   * Handle image load error - show placeholder icon
+   */
+  private handleImageError(e: Event, asset: DamAsset) {
+    const img = e.target as HTMLImageElement;
+    // Hide the broken image and show placeholder
+    img.style.display = 'none';
+    const parent = img.parentElement;
+    if (parent && !parent.querySelector('.asset-placeholder')) {
+      const placeholder = document.createElement('span');
+      placeholder.className = 'asset-placeholder';
+      placeholder.textContent = this.getAssetIcon(asset);
+      parent.appendChild(placeholder);
     }
   }
 
@@ -523,7 +559,7 @@ export class DamBrowser extends LitElement {
                     >
                       <div class="asset-thumbnail">
                         ${asset.thumbnailUrl ? html`
-                          <img src="${asset.thumbnailUrl}" alt="${asset.name}" />
+                          <img src="${this.getProxiedUrl(asset.thumbnailUrl)}" alt="${asset.name}" @error=${(e: Event) => this.handleImageError(e, asset)} />
                         ` : html`
                           <span class="asset-placeholder">${this.getAssetIcon(asset)}</span>
                         `}
