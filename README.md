@@ -9,11 +9,21 @@ This project is a sophisticated prototype of an AI-powered authoring assistant f
 **Core Technologies:**
 
 - **A2UI Protocol v0.8:** Google's Agent-to-User Interface protocol for generating rich, interactive UIs.
+- **AG-UI Protocol:** Event streaming protocol for real-time updates (Server-Sent Events).
 - **Embabel Agent Framework:** A powerful AI agent framework for the JVM.
 - **Multi-LLM Support:** Integrates with OpenAI, Anthropic, and Ollama (for local development).
 - **Adobe Spectrum:** Adobe's official design system for a professional and intuitive UI.
 
-## Key Features
+## Understanding A2UI vs AG-UI
+
+This project uses two complementary protocols:
+
+| Protocol | Purpose | Example |
+|----------|---------|---------|
+| **A2UI** | Message format for rich UIs | Defines content, UI, actions |
+| **AG-UI** | Real-time streaming | Updates appear as they're generated |
+
+**See [docs/PROTOCOL.md](docs/PROTOCOL.md)** for a detailed explanation of both protocols and how they work together.
 
 ### Brand Alignment Scoring (Textual & Visual)
 

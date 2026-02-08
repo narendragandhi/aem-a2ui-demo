@@ -166,6 +166,67 @@ Think of it as the missing link between **conversational AI** and **functional a
 
 ---
 
+## A2UI vs AG-UI: Two Protocols, One Goal
+
+This project uses **two complementary protocols** working together:
+
+### A2UI Protocol (The "What")
+
+**Purpose:** Defines the structure of requests and responses.
+
+- What content to generate (hero, product card, etc.)
+- What fields to include (title, subtitle, CTA)
+- What actions are available (Apply, Regenerate)
+- What brand score to display
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  A2UI Response                                             │
+│  {                                                         │
+│    "content": {                                            │
+│      "componentType": "hero",                               │
+│      "title": "Summer Sale",                                │
+│      "subtitle": "50% Off Everything"                       │
+│    },                                                       │
+│    "ui": { "brandScore": 92 },                             │
+│    "actions": [ {"id": "apply", "label": "Apply"} ]        │
+│  }                                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### AG-UI Protocol (The "How Fast")
+
+**Purpose:** Enables real-time streaming updates.
+
+- Watch content appear word-by-word
+- See brand score update live
+- Know when generation starts/finishes
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  AG-UI Events (streamed via SSE)                          │
+│  ──────────────────────────────────────────────────────── │
+│  event: RUN_STARTED                                        │
+│  event: TEXT_MESSAGE_DELTA {"delta":"Summer"}              │
+│  event: TEXT_MESSAGE_DELTA {"delta":" Sale"}               │
+│  event: STATE_DELTA {"brandScore":50}                      │
+│  event: STATE_DELTA {"brandScore":92}                      │
+│  event: RUN_FINISHED                                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### How They Work Together
+
+| Step | Protocol | What Happens |
+|------|----------|-------------|
+| 1 | A2UI | Client sends structured request |
+| 2 | AG-UI | Agent streams updates (title building word-by-word) |
+| 3 | A2UI | Final response includes content + UI + actions |
+
+**See [PROTOCOL.md](PROTOCOL.md)** for detailed protocol documentation.
+
+---
+
 ## Chapter 3.5: Diagram Legend
 
 All diagrams in this document use the following notation:
