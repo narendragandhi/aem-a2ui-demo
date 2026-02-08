@@ -25,6 +25,10 @@ This project uses two complementary protocols:
 
 **See [docs/PROTOCOL.md](docs/PROTOCOL.md)** for a detailed explanation of both protocols and how they work together.
 
+### Architecture Deep Dive
+
+For a technical architectural perspective including integration patterns, scalability, and deployment strategies, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
 ### Brand Alignment Scoring (Textual & Visual)
 
 To provide authors with immediate feedback, the application includes a comprehensive brand alignment scoring system. This feature analyzes generated content and provides a score indicating how well it aligns with the brand guidelines, along with a list of factors that contributed to the score. This now includes both textual and visual alignment.
@@ -94,6 +98,15 @@ See **[docs/VALUE_PROPOSITION.md](docs/VALUE_PROPOSITION.md)** for the business 
 ### Read the Full Story
 
 See **[docs/A2UI_STORY.md](docs/A2UI_STORY.md)** for a narrative guide with diagrams.
+
+### Architecture Deep Dive
+
+For technical architects, see **[ARCHITECTURE.md](ARCHITECTURE.md)** for:
+- Problem analysis and solution approach
+- Integration patterns with AEM
+- Scalability and deployment strategies
+- Security architecture
+- Trade-offs and decisions
 
 ### Plan Future Work
 
